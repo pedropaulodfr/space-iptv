@@ -9,7 +9,12 @@ Samsung Tizen: o build copia `../tv/js` para `assets/js` em vez de manter uma c�
 - Android SDK com `platforms/android-36` e `build-tools/36.0.0`
 - Gradle 9.8.2 (ou o wrapper, se presente)
 
-O caminho do SDK fica em `local.properties` (`sdk.dir=...`).
+O caminho do SDK fica em `local.properties` (`sdk.dir=...`), que **não é versionado** —
+num clone novo, crie esse arquivo (ou defina `ANDROID_HOME`/`ANDROID_SDK_ROOT`):
+
+```properties
+sdk.dir=D:/Arquivos de Programas/Android/Sdk
+```
 
 ## Compilar
 

@@ -5,6 +5,20 @@ Leia inteiro antes de mexer. Complementa o `README.md` (resumo curto).
 
 ---
 
+## 0. Repositório e layout
+
+- **GitHub:** <https://github.com/pedropaulodfr/space-iptv> (branch `main`, público).
+- **Um projeto por dispositivo:** `tv/` (app Tizen), `celular/` (projeto Android, gera o
+  APK que roda no celular **e** no projetor) e `projetor/` (modo projetor: documentação e
+  capturas). `tools/` tem os scripts de desenvolvimento; `dist/` é artefato de build e
+  **não é versionado**.
+- A camada de negócio é **uma só**: `tv/js` é copiado para os assets do APK no build
+  (`syncTizenSources`). Corrija regra de negócio ali, nunca em dois lugares.
+- Antes de commitar, confira que `celular/keystore.properties`, `dist/`, `tools/_streams`
+  e os `.log` continuam fora do índice (`git status --ignored`).
+
+---
+
 ## 1. O que é o app
 
 Player de listas IPTV para Samsung Smart TV (Tizen), feito pelo usuário Pedro para uso próprio.
