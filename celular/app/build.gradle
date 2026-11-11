@@ -1,0 +1,127 @@
+plugins {
+    id 'com.android.application'
+}
+
+// ---------------------------------------------------------------------------
+// Camada compartilhada com o app Tizen.
+// Os arquivos de js/ e fonts/ NAO sao copiados para o repositorio: eles vem de
+// ../tv/ (fonte unica de verdade, ao lado desta pasta) e sao sincronizados para
+// o build. Assim qualquer correcao de regra de negocio feita para a TV vale no
+// Android, e nenhuma linha de logica precisa ser duplicada.
+// ---------------------------------------------------------------------------
+def tizenRoot = new File(rootProject.projectDir.parentFile, 'tv')
+def sharedJs = [
+        'core/util.js',
+        'storage/store.js',
+        'api/http.js',
+        'api/xtream.js',
+        'parser/m3u.js',
+        'services/lists.js',
+        'services/catalog.js',
+        'services/userdata.js',
+        'services/parental.js',
+        'services/resume.js',
+        'services/health.js',
+        'services/tmdb.js',
+]
+def sharedAssets = layout.buildDirectory.dir('generated/tizenShared')
+
+tasks.register('syncTizenSources', Sync) {
+    group = 'spaceiptv'
+    description = 'Copia a camada compartilhada (js + fontes) do app Tizen para os assets do APK'
+    from(new File(tizenRoot, 'js')) {
+        include sharedJs
+        into 'js'
+    }
+    from(new File(tizenRoot, 'fonts')) {
+        include '*.woff2'
+        into 'fonts'
+    }
+    into sharedAssets
+}
+
+android {
+    namespace 'app.spaceiptv.mobile'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'app.spaceiptv.mobile'
+        minSdk 23
+        targetSdk 36
+        versionCode 6
+        versionName '1.0.5'
+        resourceConfigurations += ['pt-rBR', 'en']
+    }
+
+    sourceSets {
+        main {
+            assets.srcDirs += sharedAssets.get().asFile
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix '.debug'
+            versionNameSuffix '-debug'
+        }
+        release {
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packaging {
+        resources {
+            excludes += ['META-INF/LICENSE*', 'META-INF/NOTICE*', 'META-INF/*.kotlin_module']
+        }
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+// Assinatura do APK de release: as credenciais ficam FORA do repositorio,
+// em android/keystore.properties (ver keystore.properties.example).
+def keystorePropsFile = new File(rootProject.projectDir, 'keystore.properties')
+if (keystorePropsFile.exists()) {
+    def props = new Properties()
+    keystorePropsFile.withInputStream { props.load(it) }
+    // Aceita caminho absoluto (keystore fora do projeto) ou relativo a android/.
+    def storePath = props['storeFile']
+    def storeFileResolved = new File(storePath)
+    if (!storeFileResolved.isAbsolute()) storeFileResolved = new File(rootProject.projectDir, storePath)
+    android {
+        signingConfigs {
+            release {
+                storeFile storeFileResolved
+                storePassword props['storePassword']
+                keyAlias props['keyAlias']
+                keyPassword props['keyPassword']
+            }
+        }
+        buildTypes {
+            release {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+}
+
+dependencies {
+    def media3 = '1.11.1'
+    implementation "androidx.media3:media3-exoplayer:${media3}"
+    implementation "androidx.media3:media3-exoplayer-hls:${media3}"
+    implementation "androidx.media3:media3-exoplayer-dash:${media3}"
+    implementation "androidx.media3:media3-ui:${media3}"
+}
+
+// O Sync acima precisa rodar antes de os assets serem mesclados no APK.
+tasks.matching { it.name == 'preBuild' }.configureEach {
+    dependsOn tasks.named('syncTizenSources')
+}

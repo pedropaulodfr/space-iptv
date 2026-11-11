@@ -1,0 +1,10 @@
+# Chaves de assinatura e artefatos de build (nao versionar)
+keystore.properties
+*.jks
+*.keystore
+local.properties
+.gradle/
+build/
+captures/
+*.iml
+.idea/

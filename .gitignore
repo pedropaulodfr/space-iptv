@@ -1,0 +1,36 @@
+# Space IPTV — o que NAO vai para o repositorio
+# (tudo aqui e gerado: APK, WGT, build do Gradle, midia de teste, dependencias)
+
+# ---- Android / Gradle -------------------------------------------------------
+celular/.gradle/
+celular/build/
+celular/app/build/
+celular/captures/
+celular/local.properties
+celular/keystore.properties
+*.jks
+*.keystore
+*.iml
+.idea/
+
+# ---- Entregaveis gerados -----------------------------------------------------
+# APKs e WGTs sao artefatos de build (veja README.md para gerar os seus).
+dist/
+tv/.manifest.tmp
+
+# ---- Ferramentas de desenvolvimento -----------------------------------------
+tools/node_modules/
+tools/_fonts/
+tools/_sample/
+tools/_streams/
+tools/_shots/
+tools/doc-eaa/
+tools/*.log
+tools/*.err
+
+# ---- Sistema / editor --------------------------------------------------------
+Thumbs.db
+desktop.ini
+.DS_Store
+*.log
+*.tmp

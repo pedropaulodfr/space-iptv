@@ -1,0 +1,43 @@
+/* Space Launcher Design System — tokens e componentes base (Full HD 1920x1080) */
+@font-face{font-family:'Orbitron';font-weight:600;src:url(../fonts/orbitron-latin-600-normal.woff2) format('woff2')}
+@font-face{font-family:'Orbitron';font-weight:700;src:url(../fonts/orbitron-latin-700-normal.woff2) format('woff2')}
+@font-face{font-family:'Orbitron';font-weight:800;src:url(../fonts/orbitron-latin-800-normal.woff2) format('woff2')}
+@font-face{font-family:'Inter';font-weight:400;src:url(../fonts/inter-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:'Inter';font-weight:500;src:url(../fonts/inter-latin-500-normal.woff2) format('woff2')}
+
+:root{
+  --spaceBlack:#050711; --spaceNavy:#0B1638; --electricBlue:#4285FF; --cosmicPurple:#8257E5; --softWhite:#F5F7FF;
+  --glassDark:rgba(11,22,56,.55); --glassBorder:rgba(255,255,255,.12); --glassFocusBorder:rgba(66,133,255,.9);
+  --glow-blue:0 0 25px rgba(66,133,255,.6),0 0 50px rgba(66,133,255,.2);
+  --glow-purple:0 0 25px rgba(130,87,229,.6),0 0 50px rgba(130,87,229,.2);
+  --muted:rgba(245,247,255,.62);
+  --danger:#ff5d73; --ok:#3ddc97;
+  --safe:48px;
+  --ease-focus:cubic-bezier(.175,.885,.32,1.275);
+  --font-display:'Orbitron','Segoe UI',sans-serif;
+  --font-body:'Inter','Segoe UI',Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{width:1920px;height:1080px;overflow:hidden;background:var(--spaceBlack);color:var(--softWhite);font-family:var(--font-body);font-size:16px}
+/* AVPlay desenha o video numa camada ATRAS da pagina: html e body precisam ficar transparentes */
+html.playing,html.playing body{background:transparent!important}
+
+.display{font-family:var(--font-display);font-weight:800;font-size:28px;line-height:36px;letter-spacing:.04em}
+.h1{font-family:var(--font-display);font-weight:700;font-size:24px;line-height:32px}
+.h2{font-family:var(--font-display);font-weight:600;font-size:18px;line-height:24px;letter-spacing:.06em;text-transform:uppercase}
+.body-lg{font-size:16px;line-height:22px;font-weight:500}
+.body-sm{font-size:14px;line-height:20px;font-weight:400;color:var(--muted)}
+.hud-caption{font-size:12px;line-height:16px;font-weight:500}
+.mono{font-family:'Consolas','Courier New',monospace}
+
+.glass-panel{background:var(--glassDark);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border:1px solid var(--glassBorder);border-radius:20px}
+.card{position:relative;background:var(--glassDark);border:1px solid var(--glassBorder);border-radius:20px;transition:transform 250ms var(--ease-focus),border-color 250ms;overflow:visible}
+.card.focused{transform:scale(1.08);z-index:30;border-color:var(--glassFocusBorder)}
+.card.focused::before{content:"";position:absolute;left:-3px;top:-3px;right:-3px;bottom:-3px;border-radius:23px;background:linear-gradient(135deg,var(--electricBlue),var(--cosmicPurple));z-index:-1}
+.card.focused::after{content:"";position:absolute;left:0;top:0;right:0;bottom:0;border-radius:20px;box-shadow:var(--glow-blue);animation:pulse 2s ease-in-out infinite;pointer-events:none}
+@keyframes pulse{0%,100%{opacity:.6}50%{opacity:1}}
+
+.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;background:rgba(66,133,255,.18);border:1px solid rgba(66,133,255,.5);color:var(--softWhite)}
+.badge.warn{background:rgba(255,93,115,.18);border-color:rgba(255,93,115,.6)}
+.badge.ok{background:rgba(61,220,151,.15);border-color:rgba(61,220,151,.5)}
+.badge:empty{display:none}

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#050711">
+<meta name="format-detection" content="telephone=no">
+<title>Space IPTV</title>
+<link rel="stylesheet" href="css/mobile.css">
+</head>
+<body>
+
+<div id="app">
+  <header id="topbar">
+    <div class="brand"><span class="logo"></span><span id="brand-title">SPACE IPTV</span></div>
+    <div class="spacer"></div>
+    <button id="btn-search" class="icon-btn" aria-label="Pesquisar"></button>
+    <button id="btn-settings" class="icon-btn" aria-label="Configurações"></button>
+  </header>
+
+  <main id="view"></main>
+
+  <nav id="tabs"></nav>
+</div>
+
+<div id="player">
+  <div class="stage">
+    <div class="slot" data-slot="0"><div class="placeholder"></div></div>
+    <div class="slot hide" data-slot="1"><div class="placeholder"></div></div>
+  </div>
+
+  <div class="buffering"><div class="spinner"></div></div>
+  <div class="p-note"></div>
+
+  <div class="ctl">
+    <div class="p-top">
+      <button class="icon-btn" data-act="back" aria-label="Voltar"></button>
+      <div class="pt"><div class="n"></div><div class="s"></div></div>
+      <button class="icon-btn" data-act="fav" aria-label="Favorito"></button>
+    </div>
+
+    <div class="p-mid">
+      <button class="p-btn small" data-act="prev" aria-label="Anterior"></button>
+      <button class="p-btn small" data-act="rw" aria-label="Voltar 10s"></button>
+      <button class="p-btn" data-act="toggle" aria-label="Reproduzir/Pausar"></button>
+      <button class="p-btn small" data-act="ff" aria-label="Avançar 10s"></button>
+      <button class="p-btn small" data-act="next" aria-label="Próximo"></button>
+    </div>
+
+    <div class="p-bottom">
+      <div class="p-bar">
+        <span class="time" data-t="pos">00:00</span>
+        <input type="range" min="0" max="1000" value="0" step="1" data-t="seek">
+        <span class="time" data-t="dur">--:--</span>
+      </div>
+      <div class="p-actions">
+        <button class="chip" data-act="list">Canais</button>
+        <button class="chip" data-act="multi">MultiView</button>
+        <button class="chip" data-act="audio">Áudio</button>
+        <button class="chip" data-act="aspect">Ajuste</button>
+        <span class="grow"></span>
+        <button class="chip" data-act="pause-second">Fechar 2º</button>
+      </div>
+      <div class="p-hint">OK pausa · ◀ ▶ volta/avança 10s · ▲ ▼ troca de canal · Voltar sai</div>
+    </div>
+  </div>
+</div>
+
+<div id="overlay"></div>
+<div id="toast"></div>
+
+<!-- Camada compartilhada com o app Tizen (sincronizada no build a partir de app/js).
+     Regras de negocio identicas as da TV: parser M3U, Xtream, listas, catalogo,
+     favoritos/historico, controle parental, retomada e saude dos canais. -->
+<script src="../js/core/util.js"></script>
+<script src="../js/storage/store.js"></script>
+<script src="../js/api/http.js"></script>
+<script src="../js/parser/m3u.js"></script>
+<script src="../js/api/xtream.js"></script>
+<script src="../js/services/lists.js"></script>
+<script src="../js/services/catalog.js"></script>
+<script src="../js/services/userdata.js"></script>
+<script src="../js/services/parental.js"></script>
+<script src="../js/services/resume.js"></script>
+<script src="../js/services/health.js"></script>
+<script src="../js/services/tmdb.js"></script>
+
+<!-- Camada Android: adaptadores de plataforma, componentes de toque e telas -->
+<script src="js/native.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/focus.js"></script>
+<script src="js/player.js"></script>
+<script src="js/screens/home.js"></script>
+<script src="js/screens/live.js"></script>
+<script src="js/screens/vod.js"></script>
+<script src="js/screens/favs.js"></script>
+<script src="js/screens/search.js"></script>
+<script src="js/screens/settings.js"></script>
+<script src="js/shell.js"></script>
+
+</body>
+</html>

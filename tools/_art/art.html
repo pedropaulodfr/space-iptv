@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Space IPTV — arte para a loja</title>
+<style>
+@font-face{font-family:'Orbitron';font-weight:700;src:url(fonts/orbitron-latin-700-normal.woff2) format('woff2')}
+@font-face{font-family:'Orbitron';font-weight:800;src:url(fonts/orbitron-latin-800-normal.woff2) format('woff2')}
+@font-face{font-family:'Inter';font-weight:400;src:url(fonts/inter-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:'Inter';font-weight:500;src:url(fonts/inter-latin-500-normal.woff2) format('woff2')}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-family:'Inter',Arial,sans-serif}
+
+/* fundo espacial (usado nos assets opacos) */
+body.space{
+  background:
+    radial-gradient(1200px 780px at 80% 8%, rgba(66,133,255,.22), rgba(66,133,255,0) 62%),
+    radial-gradient(1000px 800px at 8% 92%, rgba(130,87,229,.20), rgba(130,87,229,0) 62%),
+    linear-gradient(158deg,#070A18 0%,#0B1638 46%,#050711 100%);
+}
+/* estrelas discretas, feitas de gradientes (comprimem bem em PNG) */
+.stars{position:absolute;inset:0;opacity:.9;background-image:
+  radial-gradient(2.2px 2.2px at 8% 14%,rgba(255,255,255,.9) 50%,transparent 51%),
+  radial-gradient(1.8px 1.8px at 17% 62%,rgba(255,255,255,.7) 50%,transparent 51%),
+  radial-gradient(2px 2px at 26% 28%,rgba(255,255,255,.85) 50%,transparent 51%),
+  radial-gradient(1.6px 1.6px at 34% 82%,rgba(255,255,255,.6) 50%,transparent 51%),
+  radial-gradient(2.4px 2.4px at 43% 16%,rgba(255,255,255,.8) 50%,transparent 51%),
+  radial-gradient(1.7px 1.7px at 52% 54%,rgba(255,255,255,.75) 50%,transparent 51%),
+  radial-gradient(2px 2px at 61% 88%,rgba(255,255,255,.65) 50%,transparent 51%),
+  radial-gradient(1.9px 1.9px at 69% 22%,rgba(255,255,255,.8) 50%,transparent 51%),
+  radial-gradient(2.3px 2.3px at 76% 66%,rgba(255,255,255,.7) 50%,transparent 51%),
+  radial-gradient(1.6px 1.6px at 84% 40%,rgba(255,255,255,.6) 50%,transparent 51%),
+  radial-gradient(2px 2px at 91% 78%,rgba(255,255,255,.8) 50%,transparent 51%),
+  radial-gradient(1.8px 1.8px at 96% 18%,rgba(255,255,255,.7) 50%,transparent 51%),
+  radial-gradient(1.5px 1.5px at 12% 40%,rgba(255,255,255,.55) 50%,transparent 51%),
+  radial-gradient(1.5px 1.5px at 58% 8%,rgba(255,255,255,.55) 50%,transparent 51%),
+  radial-gradient(1.5px 1.5px at 88% 92%,rgba(255,255,255,.5) 50%,transparent 51%)}
+
+.wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:54px}
+/* no asset com transparencia as estrelas sozinhas ficariam soltas sobre o fundo da loja */
+body:not(.space) .stars{display:none}
+/* brilho difuso sobre alfa vira faixas no PNG: no logo o corte fica limpo */
+body:not(.space) .planet{box-shadow:inset -46px -34px 90px rgba(5,7,17,.95)}
+body:not(.space) .wordmark{text-shadow:none}
+.planet{position:relative;flex:none;width:300px;height:300px;border-radius:50%;
+  background:radial-gradient(circle at 32% 28%,#2b4fb8 0%,#1a2a6b 40%,#0B1638 70%,#050711 100%);
+  box-shadow:inset -46px -34px 90px rgba(5,7,17,.95), 0 0 90px rgba(66,133,255,.45)}
+.txt{display:flex;flex-direction:column}
+.wordmark{font-family:'Orbitron',Arial,sans-serif;font-weight:800;font-size:112px;line-height:1;letter-spacing:.05em;
+  color:#F5F7FF;text-shadow:0 0 46px rgba(66,133,255,.55)}
+.tagline{font-family:'Inter',Arial,sans-serif;font-weight:500;font-size:31px;color:rgba(245,247,255,.66);margin-top:20px;letter-spacing:.01em}
+
+/* variantes */
+body.hero .wrap{justify-content:flex-end;padding-right:150px}
+body.hero .planet{width:420px;height:420px}
+body.hero .wordmark{font-size:96px}
+body.hero .tagline{font-size:28px}
+
+body.small .wrap{gap:20px}
+body.small .planet{width:104px;height:104px;box-shadow:inset -16px -12px 32px rgba(5,7,17,.95),0 0 34px rgba(66,133,255,.45)}
+body.small .wordmark{font-size:44px;text-shadow:0 0 18px rgba(66,133,255,.5)}
+body.small .tagline{font-size:15px;margin-top:7px}
+</style>
+</head>
+<body>
+  <div class="stars"></div>
+  <div class="wrap">
+    <div class="planet"></div>
+    <div class="txt">
+      <div class="wordmark">SPACE IPTV</div>
+      <div class="tagline">Listas M3U e Xtream Codes na sua TV</div>
+    </div>
+  </div>
+<script>
+  /* v=logo (fundo transparente) | bg (fundo espacial) | hero (background da ficha) | icon (512x423) */
+  var v = (new URLSearchParams(location.search)).get('v') || 'logo';
+  if (v === 'bg' || v === 'hero' || v === 'icon') document.body.className = 'space';
+  if (v === 'hero') document.body.className = 'space hero';
+  if (v === 'icon') document.body.className = 'space small';
+</script>
+</body>
+</html>

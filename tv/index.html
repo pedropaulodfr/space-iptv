@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920, user-scalable=no">
+<title>Space IPTV</title>
+<link rel="stylesheet" href="css/design-system.css">
+<link rel="stylesheet" href="css/app.css">
+<script src="$WEBAPIS/webapis/webapis.js"></script>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<div id="planet"></div>
+
+<div id="shell">
+  <header id="hud" class="glass-panel">
+    <div class="hud-brand"><span class="hud-logo"></span><span class="display">SPACE IPTV</span></div>
+    <div class="hud-info">
+      <span id="hud-list" class="hud-caption"></span>
+      <span id="hud-status" class="badge"></span>
+      <span id="hud-clock" class="hud-caption mono"></span>
+    </div>
+  </header>
+  <nav id="sidebar" class="glass-panel"></nav>
+  <main id="screen"></main>
+  <footer id="hints" class="hud-caption"></footer>
+</div>
+
+<div id="overlays"></div>
+<div id="toast"></div>
+<object id="av-object" type="application/avplayer" style="position:absolute;left:0;top:0;width:1px;height:1px"></object>
+
+<script src="js/core/util.js"></script>
+<script src="js/storage/store.js"></script>
+<script src="js/api/http.js"></script>
+<script src="js/parser/m3u.js"></script>
+<script src="js/api/xtream.js"></script>
+<script src="js/services/lists.js"></script>
+<script src="js/services/catalog.js"></script>
+<script src="js/services/userdata.js"></script>
+<script src="js/services/parental.js"></script>
+<script src="js/services/resume.js"></script>
+<script src="js/services/health.js"></script>
+<script src="js/services/tmdb.js"></script>
+<script src="js/navigation/keys.js"></script>
+<script src="js/components/vlist.js"></script>
+<script src="js/components/cards.js"></script>
+<script src="js/components/hrow.js"></script>
+<script src="js/components/ui.js"></script>
+<script src="js/player/player.js"></script>
+<script src="js/screens/details.js"></script>
+<script src="js/screens/home.js"></script>
+<script src="js/screens/browse.js"></script>
+<script src="js/screens/results.js"></script>
+<script src="js/screens/settings.js"></script>
+<script src="js/core/starfield.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+// Build raiz do projeto Android do Space IPTV.
+// A versao do app Tizen NAO tem nada a ver com este arquivo: o pacote .wgt continua
+// sendo gerado por tools/package.ps1 e tools/package-store.ps1, intocado.
+plugins {
+    id 'com.android.application' version '9.5.0' apply false
+}
