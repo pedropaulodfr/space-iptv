@@ -50,6 +50,8 @@
 
   function Parser() {
     this.carry = ''; this.first = true; this.cur = null; this.extGrp = '';
+    /* atributos do cabeçalho #EXTM3U (ex.: url-tvg/x-tvg-url para o EPG) */
+    this.head = {};
     this.res = { live: [], movie: [], series: [], cats: { live: [], movie: [], series: [] } };
     this.catSeen = { live: {}, movie: {}, series: {} };
     this.sMap = {}; this.sList = [];
@@ -64,6 +66,8 @@
   P.push = function (info, url) {
     var res = this.res, name = info.name || info.attrs['tvg-name'] || '', group = info.attrs['group-title'] || info.group || '';
     var t = classify(name, group, url, info.dur), logo = info.attrs['tvg-logo'] || info.attrs['logo'] || '';
+    /* tvg-id: usado pelo EPG do desktop para casar canal <-> programação (aditivo) */
+    var tid = info.attrs['tvg-id'] || info.attrs['epg-id'] || '';
     var cat = this.addCat(t, own(group || 'Sem categoria')), m, sname, key, s, n;
     if (!name) name = 'Sem nome';
     if (t === 'series') {
@@ -74,7 +78,7 @@
       s = this.sMap[key];
       if (!s) {
         n = res.series.length; sname = own(sname);
-        s = this.sMap[key] = { id: 'm' + hash(key), t: 'series', n: sname, ns: norm(sname), c: cat, l: own(logo), y: yearOf(sname), ek: Math.floor(n / EPCHUNK), ei: n % EPCHUNK };
+        s = this.sMap[key] = { id: 'm' + hash(key), t: 'series', n: sname, ns: norm(sname), c: cat, l: own(logo), y: yearOf(sname), ek: Math.floor(n / EPCHUNK), ei: n % EPCHUNK, ti: own(tid) };
         s.pk = []; s.cnt = 0;
         res.series.push(s); this.sList.push(s);
       }
@@ -86,7 +90,7 @@
     name = own(name);
     res[t].push({
       id: 'm' + hash(url), t: t, n: name, ns: norm(name), c: cat, l: own(logo), u: own(url),
-      y: t === 'movie' ? yearOf(name) : '', d: info.dur > 0 ? info.dur : 0
+      y: t === 'movie' ? yearOf(name) : '', d: info.dur > 0 ? info.dur : 0, ti: own(tid)
     });
   };
 
@@ -94,7 +98,9 @@
     line = line.replace(/^\s+|\s+$/g, '');
     if (!line) return;
     if (line.charAt(0) === '#') {
-      if (line.indexOf('#EXTINF:') === 0) {
+      if (line.indexOf('#EXTM3U') === 0) {
+        if (line.length > 7) this.head = parseAttrs(line.slice(7));
+      } else if (line.indexOf('#EXTINF:') === 0) {
         var p = splitInfo(line.slice(8)), head = p[0], durM = /^\s*(-?\d+(?:\.\d+)?)/.exec(head);
         this.cur = { dur: durM ? parseFloat(durM[1]) : -1, attrs: parseAttrs(head), name: p[1].replace(/^\s+|\s+$/g, ''), group: this.extGrp };
       } else if (line.indexOf('#EXTGRP:') === 0) {
@@ -125,6 +131,7 @@
     var res = this.res;
     if (!(res.live.length + res.movie.length + res.series.length)) throw { code: 'invalid' };
     res.epPacked = this.sList.map(function (s) { var t = s.pk.join('\n'); delete s.pk; delete s.cnt; return t; });
+    res.head = this.head || {};
     this.sMap = null; this.sList = null;
     return res;
   };
