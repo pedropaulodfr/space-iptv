@@ -223,6 +223,12 @@
   function onHover(d) {
     if (!d) return;
     if (d.kind === 'menu') { shellCall('hoverMenu', d.idx); afterProgrammatic(); return; }
+    /* Categorias de TV/Filmes/Séries só trocam no clique. O foco da VList dispara
+       onFocus (que troca a categoria), então hover aqui não deve chamar setIdx. */
+    if (d.kind === 'vlist' && d.cell && d.cell.closest && d.cell.closest('.cats')) {
+      afterProgrammatic();
+      return;
+    }
     if (d.kind === 'vlist' || d.kind === 'hrow') { applyFocus(d); afterProgrammatic(); return; }
     /* botões/campos: o realce de :hover do web.css dá o feedback; o clique ativa */
   }

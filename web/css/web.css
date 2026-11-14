@@ -109,7 +109,16 @@ body { overscroll-behavior: none; touch-action: manipulation; }
 @media (hover: hover) {
   .card.poster:hover .pimg { border-color: rgba(66, 133, 255, .55); }
   .chan:hover { background: rgba(66, 133, 255, .08); border-radius: 16px; }
-  .cat-item:hover { color: var(--softWhite); }
+  /* categoria: feedback de alvo sem roubar o foco/trocar a lista */
+  .cats .cat-item:hover {
+    color: var(--softWhite);
+    background: rgba(255, 255, 255, .06);
+    border-color: rgba(255, 255, 255, .14);
+  }
+  .cats .cat-item.sel:hover {
+    background: rgba(66, 133, 255, .18);
+    border-color: rgba(66, 133, 255, .35);
+  }
   .list-row:hover .t { color: var(--softWhite); }
   .btn:hover { border-color: var(--glassFocusBorder); }
 }
