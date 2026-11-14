@@ -1,33 +1,36 @@
 # Space IPTV
 
 Player de listas IPTV (**M3U por URL** e **Xtream Codes**) com o visual do Space Launcher
-Design System, feito para rodar em **três tipos de aparelho**. O app não traz nenhuma lista,
-canal ou credencial: só reproduz o que o usuário cadastra.
+Design System, feito para rodar em **três tipos de aparelho e no navegador**. O app não traz
+nenhuma lista, canal ou credencial: só reproduz o que o usuário cadastra.
 
 | Pasta | Projeto | O que roda |
 |---|---|---|
 | [`tv/`](tv/) | **TV Samsung (Tizen)** | app web Tizen (JavaScript puro, sem build) |
 | [`celular/`](celular/) | **Celular Android** | projeto Gradle → **um APK** que também roda no projetor |
 | [`projetor/`](projetor/) | **Projetor / TV box** | documentação do modo projetor (HY300), capturas e como testar |
+| [`web/`](web/) | **Navegador (desktop)** | versão web: reaproveita `tv/js`, player HTML5/HLS/TS, servidor local e build estático |
 | [`tools/`](tools/) | ferramentas de desenvolvimento | servidor de streams de teste, bateria ponta a ponta, harness no navegador |
-| `dist/` | artefatos gerados (APK/WGT) | **fora do controle de versão** — veja "Gerar os pacotes" |
+| `dist/` | artefatos gerados (APK/WGT/build web) | **fora do controle de versão** — veja "Gerar os pacotes" |
 
 **Celular e projetor usam o MESMO APK**: o app detecta a tela (largura, memória, WebView) e
 escolhe o modo — trilha lateral + controle remoto no projetor, abas + toque no celular. Dá
-para fixar em **Configurações → Tela**.
+para fixar em **Configurações → Tela**. A **versão web** roda no navegador do computador e tem
+documentação própria em [`web/README.md`](web/README.md).
 
 ## A camada de negócio é uma só
 
 `tv/js` é a fonte única de verdade (parser M3U, Xtream, catálogo, listas, favoritos,
 histórico, controle parental, retomada, saúde dos canais, sinopses do TMDb). O build do
 Android copia esses arquivos para os assets do APK (`syncTizenSources`) em vez de manter
-cópia. **Corrigiu um bug de regra de negócio? Corrija em `tv/js` e as três versões ficam
-certas.**
+cópia; a versão web **carrega os mesmos arquivos** (não copia). **Corrigiu um bug de regra de
+negócio? Corrija em `tv/js` e todas as versões — TV, Android e web — ficam certas.**
 
 ```
-tv/          app Tizen completo (o `js/` é compartilhado com o Android)
+tv/          app Tizen completo (o `js/` é compartilhado com o Android e a web)
 celular/     projeto Android (Java 17 + AGP + Media3/ExoPlayer) → APK
 projetor/    modo projetor: o que muda, teclas do controle, capturas
+web/         versão web: shell, player HTML5/HLS/TS, proxy opcional e build estático
 tools/       servidor de teste, e2e, harness, empacotamento Tizen
 ```
 
@@ -50,8 +53,28 @@ pwsh tools\package-store.ps1 -Profile SEU_PERFIL   # pacote para a Samsung Store
 
 Os APK/WGT gerados não vão para o repositório (`.gitignore`): são artefatos de build.
 
+## Versão web (navegador)
+
+Mesma camada de negócio e mesmo visual, para **desktop** (Chrome/Edge). Requer Node 18+ para o
+proxy e **não tem dependências** (`npm install` não é necessário).
+
+```powershell
+node web/server.js          # http://127.0.0.1:8095/  (--port/PORT; bind 127.0.0.1)
+node web/server.js --proxy  # proxy local opt-in para fontes sem CORS
+node web/build.js           # dist/web/ para publicar como site estático (raiz ou subpasta)
+```
+
+- O proxy é **opt-in**, escuta só `127.0.0.1` por padrão, não tem autenticação e **não deve ser
+  exposto na rede** (`--host 0.0.0.0` expõe o servidor e o proxy; veja `web/README.md`).
+- Limitações reais de navegador (CORS, mixed content, WebCrypto em LAN, formatos por
+  navegador), como publicar, decisões e testes: [`web/README.md`](web/README.md).
+- Os mocks de desenvolvimento continuam em `tools/mock-server.js` (8080) e
+  `tools/mock-streams.js` (8090).
+
 ## Versões e documentação
 
+- **Web (navegador)**: [`web/README.md`](web/README.md) (como rodar, publicar, limitações e
+  decisões) e [`web/NOTES.md`](web/NOTES.md) (reconhecimento técnico da integração).
 - **Android**: [`celular/README.md`](celular/README.md) (como compilar, assinar e testar) e
   [`ANDROID.md`](ANDROID.md) (arquitetura, decisões, histórico das versões).
 - **Projetor**: [`projetor/README.md`](projetor/README.md) — trilha lateral, setas/OK,
@@ -104,6 +127,9 @@ tizen run -p SpcIptv001.SpaceIPTV -t UN43T5300AGXZD
 - **Controle parental**: PIN de 4 dígitos (selado com AES-GCM) esconde canais/filmes/séries adultos e pede a senha para liberar. A detecção é por palavra-chave no nome da categoria, do item ou da lista (xxx, adulto, porn, erótic, sexo, +18, 🔞); lista com nome adulto fica inteira oculta. O desbloqueio vale só para a sessão. Em **Configurações → 🔒 Controle parental**.
 - **Iniciar no último canal assistido**: opção **desligada por padrão** em Configurações. Quando ligada, ao abrir o app ele reproduz o último canal visto — guardado por **id do canal + id da lista** (`sl.lastCh`), nunca por nome ou posição. Canal adulto **nunca** é retomado automaticamente (regra que vence a preferência), mas o registro é preservado e o acesso manual continua pedindo a senha do controle parental.
 - **Saúde dos canais**: ao abrir uma categoria de TV ao vivo, o app verifica os canais em segundo plano (3 por vez, timeout 8 s, cache de 60 s) e mostra uma bolinha no logo: verde ≤1,5 s, amarelo ≤4 s, laranja (lento/erro/formato), vermelho após 2 falhas seguidas, cinza = não verificado ou bloqueio de CORS. O resultado real da reprodução prevalece (verde). **INFO** mostra os detalhes do canal focado; a fila pausa enquanto um canal está tocando. Pode ser desligado em **Configurações → Monitoramento da saúde dos canais** (liga por padrão; desligado não faz requisições, cancela a fila e esconde os indicadores). Como funciona por dentro: [SAUDE-CANAIS.md](SAUDE-CANAIS.md).
+- **Versão web**: a mesma camada `tv/js` (carregada, não copiada), palco 1920×1080 escalado,
+  player HTML5 + `hls.js`/`mpegts.js` vendorizados e build sem bundler. O app da TV e o APK
+  Android não mudam.
 
 ## Listas grandes
 
@@ -128,3 +154,6 @@ OK = selecionar (segurar OK ou tecla amarela = favoritar) • Voltar • ◀▶�
 - `node tools/e2e.js`: bateria ponta a ponta no aparelho Android (**122 verificações**), com `node tools/mock-streams.js` no ar.
 - `.\tools\harness.ps1`: abre a interface do APK no navegador da máquina (1024×600, modo projetor) para testar layout e setas **sem aparelho**.
 - `node tools/mock-server.js`: servidor **só de desenvolvimento** (porta 8080) que serve o app da TV e imita Xtream (usuário/senha `test`), para testar a interface no navegador.
+- `node web/build.js`: build estático da versão web (`dist/web/`, cópia sem bundler) e
+  `node web/server.js`: servidor local da versão web em `http://127.0.0.1:8095/`. Detalhes e
+  limitações em [`web/README.md`](web/README.md).

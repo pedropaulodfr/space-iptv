@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Space IPTV</title>
+<link rel="icon" type="image/png" href="tv/icon.png">
+<link rel="stylesheet" href="tv/css/design-system.css">
+<link rel="stylesheet" href="tv/css/app.css">
+<link rel="stylesheet" href="web/css/web.css">
+</head>
+<body>
+<!-- Palco fixo de 1920x1080: web/css/web.css escala e centraliza via transform -->
+<div id="stage">
+  <canvas id="stars"></canvas>
+  <div id="planet"></div>
+
+  <div id="shell">
+    <header id="hud" class="glass-panel">
+      <div class="hud-brand"><span class="hud-logo"></span><span class="display">SPACE IPTV</span></div>
+      <div class="hud-info">
+        <span id="hud-proxy" class="badge" hidden>proxy local</span>
+        <span id="hud-list" class="hud-caption"></span>
+        <span id="hud-status" class="badge" role="status" aria-live="polite"></span>
+        <span id="hud-clock" class="hud-caption mono"></span>
+        <button id="hud-fs" class="hud-fs" type="button" aria-label="Tela cheia" title="Tela cheia">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+        </button>
+      </div>
+    </header>
+    <nav id="sidebar" class="glass-panel" aria-label="Menu principal"></nav>
+    <main id="screen" role="main"></main>
+    <footer id="hints" class="hud-caption" aria-live="polite"></footer>
+  </div>
+
+  <div id="overlays"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+</div>
+
+<div id="stage-warn" role="status" hidden>Janela pequena — o app foi desenhado para 1280×720 ou mais</div>
+
+<script src="tv/js/core/util.js"></script>
+<script src="tv/js/storage/store.js"></script>
+<script src="tv/js/api/http.js"></script>
+<script src="tv/js/parser/m3u.js"></script>
+<script src="tv/js/api/xtream.js"></script>
+<script src="tv/js/services/lists.js"></script>
+<script src="tv/js/services/catalog.js"></script>
+<script src="tv/js/services/userdata.js"></script>
+<script src="tv/js/services/parental.js"></script>
+<script src="tv/js/services/resume.js"></script>
+<script src="tv/js/services/health.js"></script>
+<script src="tv/js/services/tmdb.js"></script>
+<script src="tv/js/components/vlist.js"></script>
+<script src="tv/js/components/cards.js"></script>
+<script src="tv/js/components/hrow.js"></script>
+<script src="tv/js/components/ui.js"></script>
+<script src="tv/js/screens/details.js"></script>
+<script src="tv/js/screens/home.js"></script>
+<script src="tv/js/screens/browse.js"></script>
+<script src="tv/js/screens/results.js"></script>
+<script src="tv/js/screens/settings.js"></script>
+<script src="tv/js/core/starfield.js"></script>
+
+<script src="web/js/keys.js"></script>
+<script src="web/js/pointers.js"></script>
+<script src="web/js/net.js"></script>
+<script src="web/js/player.js"></script>
+<script src="web/js/shell.js"></script>
+</body>
+</html>

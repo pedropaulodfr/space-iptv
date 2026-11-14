@@ -1,0 +1,122 @@
+/* Space IPTV — camada só da web. NÃO redesenha: corrige o que é específico do navegador
+   (palco escalado, posicionamento sob transform, cursor, tela cheia, foco de teclado,
+   preferências de movimento e aviso de janela pequena). Tokens/fontes/cards/modais/player
+   continuam vindo de tv/css/design-system.css e tv/css/app.css. */
+
+/* ---------- página: sem rolagem, fundo do espaço ---------- */
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--spaceBlack);
+}
+body { overscroll-behavior: none; touch-action: manipulation; }
+
+/* ---------- palco fixo 1920x1080, escalado por web/js/shell.js ---------- */
+#stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1920px;
+  height: 1080px;
+  transform-origin: 0 0;
+  background: var(--spaceBlack);
+  overflow: hidden;
+}
+
+/* No CSS da TV estes elementos são position:fixed. Como #stage tem transform, ele vira o
+   bloco de contenção; forçar absolute deixa o comportamento igual em Chrome/Firefox/Safari. */
+#stars, #planet, #shell, #overlays, #toast, #player { position: absolute; }
+
+/* imagens não são arrastáveis: o clique é da ponte de ponteiro */
+#stage img { -webkit-user-drag: none; user-select: none; }
+
+/* ---------- HUD: botão de tela cheia e badge do proxy ---------- */
+.hud-fs {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 12px;
+  background: rgba(66, 133, 255, .16);
+  border: 1px solid var(--glassBorder);
+  color: var(--softWhite);
+  cursor: pointer;
+  transition: background 200ms, border-color 200ms, transform 200ms var(--ease-focus);
+}
+.hud-fs svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.hud-fs:hover { background: rgba(66, 133, 255, .3); border-color: var(--glassFocusBorder); }
+.hud-fs:active { transform: scale(.94); }
+.hud-fs:focus-visible { outline: 2px solid var(--electricBlue); outline-offset: 3px; }
+
+#hud-proxy { flex: none; }
+[hidden] { display: none !important; }
+
+/* ---------- foco de teclado visível (o mesmo estado .focused do controle) ---------- */
+:focus-visible { outline: 2px solid var(--electricBlue); outline-offset: 3px; }
+/* o campo de busca com o cursor dentro se parece com o campo focado pelo controle */
+.field:focus-within { border-color: var(--glassFocusBorder); box-shadow: var(--glow-blue); }
+.field input:focus-visible { outline: none; }
+/* foco de teclado em botões nativos (ex.: tela cheia) já é tratado acima */
+
+/* ---------- feedback de ponteiro (sem criar estado concorrente com .focused) ---------- */
+@media (hover: hover) {
+  .card.poster:hover .pimg { border-color: rgba(66, 133, 255, .55); }
+  .chan:hover { background: rgba(66, 133, 255, .08); border-radius: 16px; }
+  .cat-item:hover { color: var(--softWhite); }
+  .list-row:hover .t { color: var(--softWhite); }
+  .btn:hover { border-color: var(--glassFocusBorder); }
+}
+/* pressionado: feedback tátil para toque e mouse */
+.card:active, .btn:active, .pin-key:active, .nav-item:active { transform: scale(.98); }
+
+/* ---------- cursor escondido após ~2,5 s sem mover (ponte) ---------- */
+html.hide-cursor, html.hide-cursor body, html.hide-cursor #stage * { cursor: none !important; }
+
+/* ---------- tela cheia ---------- */
+html:fullscreen, html:-webkit-full-screen,
+html:fullscreen body, html:-webkit-full-screen body { background: var(--spaceBlack); }
+
+/* ---------- aviso não bloqueante de janela pequena (< 1024x576) ---------- */
+#stage-warn {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  z-index: 200;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--softWhite);
+  background: rgba(11, 22, 56, .95);
+  border: 1px solid var(--glassBorder);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .45);
+  pointer-events: none;
+  text-align: center;
+  max-width: 90vw;
+}
+
+/* ---------- preferência por menos movimento ---------- */
+@media (prefers-reduced-motion: reduce) {
+  #planet { animation: none; }
+  .card.focused::after { animation: none; opacity: .85; }
+  .skel { animation: none; }
+  .spinner { animation-duration: 2.4s; }
+  .nav-item, .card, .btn, .field, .pin-key,
+  .home-track, .hr-track, .hud-fs { transition: none; }
+  .card.focused, .btn.focused, .nav-item.focused, .field.focused { transform: none; }
+  .card:active, .btn:active, .pin-key:active, .nav-item:active { transform: none; }
+}

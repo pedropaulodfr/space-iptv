@@ -28,6 +28,9 @@ tools/doc-eaa/
 tools/*.log
 tools/*.err
 
+# Painel de agentes: estado e timeline são de execução, não de código.
+tools/agents-live/state/
+
 # ---- Sistema / editor --------------------------------------------------------
 Thumbs.db
 desktop.ini

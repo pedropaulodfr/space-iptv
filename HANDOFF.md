@@ -9,11 +9,12 @@ Leia inteiro antes de mexer. Complementa o `README.md` (resumo curto).
 
 - **GitHub:** <https://github.com/pedropaulodfr/space-iptv> (branch `main`, público).
 - **Um projeto por dispositivo:** `tv/` (app Tizen), `celular/` (projeto Android, gera o
-  APK que roda no celular **e** no projetor) e `projetor/` (modo projetor: documentação e
-  capturas). `tools/` tem os scripts de desenvolvimento; `dist/` é artefato de build e
-  **não é versionado**.
+  APK que roda no celular **e** no projetor), `projetor/` (modo projetor: documentação e
+  capturas) e `web/` (versão navegador desktop, descrita na §16). `tools/` tem os scripts de
+  desenvolvimento; `dist/` é artefato de build e **não é versionado**.
 - A camada de negócio é **uma só**: `tv/js` é copiado para os assets do APK no build
-  (`syncTizenSources`). Corrija regra de negócio ali, nunca em dois lugares.
+  (`syncTizenSources`) e carregado diretamente pela versão web. Corrija regra de negócio ali,
+  nunca em dois lugares.
 - Antes de commitar, confira que `celular/keystore.properties`, `dist/`, `tools/_streams`
   e os `.log` continuam fora do índice (`git status --ignored`).
 
@@ -22,6 +23,9 @@ Leia inteiro antes de mexer. Complementa o `README.md` (resumo curto).
 ## 1. O que é o app
 
 Player de listas IPTV para Samsung Smart TV (Tizen), feito pelo usuário Pedro para uso próprio.
+
+Desde **13/11/2026** o projeto também tem uma **versão web** para navegador de desktop, que
+reaproveita a mesma camada `tv/js` — ver §16.
 
 - Cadastra listas **M3U por URL** e **Xtream Codes** (servidor + usuário + senha), várias listas, uma ativa por vez.
 - Seções: **Início, TV ao vivo, Filmes, Séries (temporadas/episódios), Pesquisa global, Favoritos, Configurações**.
@@ -415,3 +419,99 @@ de verdade.
   mojibake (Windows-1252 ? UTF-8). Use a ferramenta de edi��o de texto.
 - `adb` com dois aparelhos ligados exige `-s`/`ADB_SERIAL` em **todo** comando.
 - No HY300 o `screencap` devolve arquivo vazio: use `screenrecord` + `ffmpeg`.
+
+---
+
+## 16. Versão web (navegador) — desde 13/11/2026
+
+### 16.1 O que foi entregue
+
+- `web/` novo: `index.html`, `css/web.css`, `js/{keys,pointers,net,player,shell}.js`,
+  `vendor/{hls.min.js v1.5.18, mpegts.min.js v1.8.0}`, `server.js`, `build.js`, `README.md`
+  e `NOTES.md` (reconhecimento técnico).
+- A web **carrega** `tv/js` (parser, Xtream, catálogo, listas, favoritos, histórico, parental,
+  retomada, saúde, TMDb, telas e componentes) e substitui apenas `tv/js/navigation/keys.js`
+  (teclado), `tv/js/player/player.js` (AVPlay → HTML5/HLS/TS) e `tv/js/main.js` (shell).
+- A única alteração em `tv/js` foi a linha aditiva `_press` no `pinPad`
+  (`tv/js/components/ui.js`), já registrada em `web/NOTES.md §10`, feita na integração desta
+  versão; a TV não tem mouse, então o comportamento dela não muda.
+- Servidor local `node web/server.js` (8095, `PORT`/`--port`, bind `127.0.0.1`, `--proxy`
+  opt-in) e build estático `node web/build.js` → `dist/web/`.
+- Documentação: `web/README.md` (rodar, publicar, limitações, decisões e testes), `README.md`
+  raiz e esta seção.
+- O app da TV e o APK Android **não** foram alterados nem reempacotados nesta entrega.
+
+### 16.2 Como rodar
+
+```powershell
+node web/server.js                  # http://127.0.0.1:8095/ (padrão)
+node web/server.js --port 8097      # outra porta (env PORT também vale)
+node web/server.js --proxy          # proxy local opt-in, na mesma origem
+node tools/mock-server.js           # 8080 — Xtream test/test e /list.m3u
+$env:HOST_IP='127.0.0.1'; node tools/mock-streams.js   # 8090 — HLS/TS/MP4/404/403
+```
+
+O servidor serve `/` → `web/index.html`, `/web/...` e `/tv/...`, sem listagem e com
+`Cache-Control: no-store`; mapeia `/web/index.html` para `/`. O bind padrão é `127.0.0.1`.
+`--host 0.0.0.0` expõe o servidor **e** o proxy à rede; o proxy **não tem autenticação**.
+Em build estático o proxy não existe.
+
+### 16.3 Build estático
+
+```powershell
+node web/build.js                   # dist/web (padrão)
+node web/build.js --out dist/web2   # ou BUILD_OUT=dist/web2
+```
+
+- Copia `web/index.html`, `web/{js,css,vendor}` e `tv/{js,css,fonts,icon.png}`. **Não** copia
+  `server.js`, `build.js`, README/docs, `dist/`, `state/` nem capturas. Sem bundler ou
+  minificação.
+- Estrutura relativa preservada: o mesmo build funciona em `http://host/` e em
+  `http://host/repo/` (GitHub Pages), sem rewrite de SPA.
+- Valida as fontes e as referências relativas do HTML/CSS e falha **antes** de limpar o
+  destino; recusa destino dentro de `web/`, `tv/`, `tools/`, `celular/` e `projetor/`.
+  É idempotente. Medido: **42 arquivos, ~1,3 MB**.
+- Para publicar, copie **o conteúdo** de `dist/web/` para a raiz da hospedagem.
+
+### 16.4 Testes feitos (evidência)
+
+- `node web/build.js`: 42 arquivos, árvore conferida, nenhum `server.js`/`build.js`/`.md`/
+  `state` no destino, segunda execução idempotente.
+- `--out`/`BUILD_OUT` e destinos inválidos: exit 2 com mensagem; falha de fonte essencial
+  simulada em pasta temporária: exit 1 listando o que falta, sem tocar no destino.
+- Build servido por servidor estático temporário **sem proxy**, porta **8123** (diferente de
+  8095/8096/8080/8090), com montagem na raiz **e** em `/repo/`: **84/84 requisições HTTP 200**
+  (42 arquivos × 2 montagens).
+- **Edge headless `Edg/157.0.4341.57`**, 1920×1080: as duas URLs montaram o app (canvas,
+  7 itens de menu, HUD, toast “Adicione uma lista para começar”); **0 exceções de JavaScript**,
+  **0 `requestfailed`**; o único 404 foi `/__proxy/ping`, esperado em host estático (o
+  `server.js` local responde 200 `{ok:false}` nessa rota). Navegação por teclado exercitada:
+  Esc → menu, seta move o foco, Enter entra na tela, Esc volta ao menu.
+- `node tools/test-m3u.js`: passou (100 mil itens em 1945 ms).
+- `node tools/test-resume.js`: **27/27**. `node tools/test-health.js`: **57/57**.
+- Nenhum processo de teste ficou rodando (servidor temporário e Edge encerrados).
+
+### 16.5 Limitações e o que não foi testado
+
+- **Não testado** nesta entrega: Safari, reprodução real de HLS/TS/MP4 no Safari
+  (a validação de reprodução é da integração/QA), celular/tablet, modo privado do navegador e
+  listas reais do usuário.
+- CORS: M3U, Xtream, `probe` e HLS/TS via XHR exigem CORS; `<video>` MP4 direto não; HLS nativo
+  do Safari não. Mixed content: página `https` bloqueia fonte `http` por script.
+- WebCrypto só em contexto seguro (`localhost`/`127.0.0.1`/`https`); em `http://192.168.x.x` o
+  `store.js` cai no formato `p0:` (Base64) — **não é criptografia**.
+- MKV/AVI e codecs H.265/AC3 dependem do navegador; não há transcodificação. Sem PWA, EPG,
+  DRM, gravação ou layout mobile dedicado.
+- A saúde dos canais fica cinza quando o provedor bloqueia o `probe` (CORS): limitação do alvo,
+  não bug do app.
+- O build copia `tv/js` inteiro, inclusive `main.js`, `navigation/keys.js` e
+  `player/player.js` da TV, que a web **não** carrega; é cópia barata e mantém a fonte única.
+- Em build estático não há proxy; o badge “proxy local” não aparece.
+
+### 16.6 Pendências
+
+- Fase de QA (F5): matriz de navegadores, capturas oficiais em `dist/web-shots/`, auditoria
+  `ui-ux-pro-max` em `web/UI-UX-AUDIT.md` e validação de reprodução dos três formatos no
+  navegador.
+- O `README.md` raiz e o `web/README.md` já documentam as limitações; qualquer mudança em
+  `web/server.js`/`web/js/net.js` deve atualizar a seção de proxy do `web/README.md`.

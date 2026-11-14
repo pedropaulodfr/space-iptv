@@ -142,6 +142,7 @@
         line.forEach(function (v) {
           var b = App.el('div', 'pin-key' + (v.length > 1 ? ' small' : ''), v === 'apagar' ? 'Apagar' : (v === 'ok' ? 'OK' : v));
           b._v = v; row.appendChild(b); keys.push(b);
+          b._press = function () { press(v); }; /* web: gancho de clique; sem efeito na TV */
         });
         grid.appendChild(row);
       });

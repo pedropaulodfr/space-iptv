@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#050711">
+  <title>Space IPTV — agentes ao vivo</title>
+  <link rel="icon" href="/tv/icon.png">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <a class="skip" href="#cards">Pular para os agentes</a>
+  <div class="space" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+        <defs>
+          <linearGradient id="brandGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#4285FF"/>
+            <stop offset="1" stop-color="#8257E5"/>
+          </linearGradient>
+        </defs>
+        <circle cx="24" cy="24" r="7" fill="url(#brandGrad)"/>
+        <ellipse cx="24" cy="24" rx="19" ry="7.5" fill="none" stroke="#4285FF" stroke-opacity=".65" stroke-width="1.4" transform="rotate(-24 24 24)"/>
+        <ellipse cx="24" cy="24" rx="19" ry="7.5" fill="none" stroke="#8257E5" stroke-opacity=".65" stroke-width="1.4" transform="rotate(56 24 24)"/>
+        <circle cx="39" cy="17" r="2.2" fill="#F5F7FF"/>
+      </svg>
+      <div class="brand-text">
+        <p class="eyebrow">Space IPTV · ferramenta de desenvolvimento</p>
+        <h1>Agentes ao vivo</h1>
+      </div>
+    </div>
+
+    <div class="head-metrics" aria-label="Resumo da execução">
+      <div class="metric">
+        <span class="metric-label">Fase</span>
+        <strong id="phase">—</strong>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Tempo total</span>
+        <strong id="totalTime">—</strong>
+      </div>
+      <div class="metric counter">
+        <span class="metric-label"><span class="dot working" aria-hidden="true"></span>Trabalhando</span>
+        <strong id="countWorking">0</strong>
+      </div>
+      <div class="metric counter">
+        <span class="metric-label"><span class="dot blocked" aria-hidden="true"></span>Bloqueado</span>
+        <strong id="countBlocked">0</strong>
+      </div>
+      <div class="metric counter">
+        <span class="metric-label"><span class="dot done" aria-hidden="true"></span>Concluído</span>
+        <strong id="countDone">0</strong>
+      </div>
+    </div>
+
+    <div class="conn" id="conn" data-state="connecting">
+      <span class="conn-dot" aria-hidden="true"></span>
+      <span class="conn-text" id="connText">conectando…</span>
+      <span class="conn-sub" id="lastUpdate">sem dados</span>
+    </div>
+  </header>
+
+  <p class="sr-only" id="live" aria-live="polite" aria-atomic="true"></p>
+
+  <main class="layout">
+    <section class="panel board" aria-labelledby="agentsTitle">
+      <div class="section-head">
+        <h2 id="agentsTitle">Agentes</h2>
+        <span class="section-meta" id="agentCount">0 agentes</span>
+      </div>
+      <div class="cards" id="cards" role="list"></div>
+    </section>
+
+    <aside class="rail">
+      <section class="panel graph-panel" aria-labelledby="graphTitle">
+        <div class="section-head">
+          <h2 id="graphTitle">Grafo</h2>
+          <span class="section-meta">orquestrador no centro</span>
+        </div>
+        <div class="graph" id="graph"></div>
+        <ul class="legend" aria-label="Legenda do grafo">
+          <li><span class="swatch working" aria-hidden="true"></span>Trabalhando</li>
+          <li><span class="swatch blocked" aria-hidden="true"></span>Bloqueado</li>
+          <li><span class="swatch done" aria-hidden="true"></span>Concluído</li>
+          <li><span class="swatch error" aria-hidden="true"></span>Erro</li>
+          <li><span class="swatch idle" aria-hidden="true"></span>Ocioso</li>
+          <li><span class="edge-sample" aria-hidden="true"></span>Aresta animada = em execução</li>
+          <li><span class="swatch stale" aria-hidden="true"></span>Sem sinal &gt; 30 s</li>
+        </ul>
+      </section>
+
+      <section class="panel timeline-panel" aria-labelledby="timelineTitle">
+        <div class="section-head">
+          <h2 id="timelineTitle">Timeline</h2>
+          <span class="section-meta" id="eventCount">0 eventos</span>
+        </div>
+        <ol class="timeline" id="timeline" role="log"></ol>
+      </section>
+    </aside>
+  </main>
+
+  <footer class="foot">
+    <span>fonte: tools/agents-live/state</span>
+    <span>SSE <code>/events</code> · fallback 1 s em <code>/api/state</code></span>
+    <span id="serverAddr">127.0.0.1:8096</span>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
