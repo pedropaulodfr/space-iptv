@@ -515,3 +515,80 @@ node web/build.js --out dist/web2   # ou BUILD_OUT=dist/web2
   navegador.
 - O `README.md` raiz e o `web/README.md` já documentam as limitações; qualquer mudança em
   `web/server.js`/`web/js/net.js` deve atualizar a seção de proxy do `web/README.md`.
+## 17. Login e administrador na versão web (desde 14/11/2026)
+
+Esta seção complementa a 16: a web deixou de ser um site estático. Agora existe
+autenticação no edge, administração de contas e sincronização por usuário.
+
+### 17.1 Arquitetura (o mínimo para não se perder)
+
+> **Atualização (14/11/2026):** a plataforma passou de Supabase para **Neon**.
+> Não há serviço de auth de terceiros: `app_users` + `app_sessions` no Postgres,
+> senha em bcrypt (`pgcrypto`), token de acesso HMAC assinado no edge.
+
+```
+navegador ──cookie HttpOnly──► Cloudflare Pages
+                                  functions/_middleware.js
+                                    ├─ token HMAC válido? (AUTH_SECRET, sem banco)
+                                    ├─ expirou? tenta refresh 1x (app_sessions) e regrava cookies
+                                    ├─ sem sessão: /  -> 302 /login.html?next=...
+                                    │              /api/* -> 401 JSON
+                                    └─ com sessão: segue e anexa context.data.auth
+                                  functions/api/auth/*   -> SQL no Neon (bcrypt + sessões)
+                                  functions/api/sync/*   -> SQL no Neon em 1 transação (RLS)
+                                  functions/api/admin/*  -> SQL no Neon (app.role = admin)
+```
+
+- `functions/` fica na **raiz** do repositório (o wrangler compila de lá).
+- `dist/web` é o build estático (`node web/build.js`); `_headers` e `_routes.json`
+  entram nele.
+- `db/001_init.sql` + `db/002_last_sign_in.sql` criam tabelas, RLS, papel `space_app`
+  e as RPCs; `tools/neon-migrate.js` aplica pelo endpoint `/sql` da Neon.
+
+### 17.2 Como publicar
+
+```powershell
+node web/build.js
+npx wrangler pages deploy            # da raiz do repositório
+```
+
+Cadastre em **Cloudflare Pages → Settings → Variables and Secrets**
+(Production **e** Preview): `NEON_APP_URL` (secret, papel `space_app`),
+`AUTH_SECRET` (secret, ≥ 32 caracteres) e `AUTH_RECOVERY_ENABLED=false`.
+O passo a passo completo está em `SETUP-NEON.md`.
+
+### 17.3 Como rodar local
+
+```powershell
+node web/build.js
+node tools/pages-runner.js     # http://127.0.0.1:8788 com as Functions reais
+
+node tools/test-auth.js        # 96 casos de aceite contra o banco do .dev.vars
+node web/smoke.js              # contrato com login
+node web/smoke.js --static     # MIME/traversal/proxy do servidor estático puro
+node tools/e2e-login.js        # Edge headless (login, admin e sync)
+```
+
+As contas de teste são criadas e apagadas no domínio `@e2e.local`. `node web/server.js`
+continua servindo **só assets** e avisa no console que não tem login.
+
+### 17.4 Como recuperar o acesso se o único admin se perder
+
+Detalhado em `SETUP-NEON.md` §7. Resumo (conexão owner em `NEON_DATABASE_URL`):
+
+```powershell
+node tools/neon-sql.js "update app_users set role = 'admin', disabled = false where lower(email) = 'voce@exemplo.com'"
+node tools/neon-sql.js "update app_users set password_hash = public.hash_password('senha-nova-forte-123') where lower(email) = 'voce@exemplo.com'"
+node tools/neon-sql.js "update app_sessions set revoked_at = now() where user_id = (select id from app_users where lower(email) = 'voce@exemplo.com')"
+```
+
+### 17.5 O que NÃO foi validado nesta entrega
+
+- **Navegador real com print**: login feliz/triste, admin criando/resetando/
+  desativando/excluindo, dois perfis sincronizando e o player sob a CSP. A validação
+  automatizada cobre os contratos HTTP (96 casos) + 21 verificações no Edge headless,
+  mas não substitui o teste visual do player com listas reais.
+- **Deploy de verdade** no Cloudflare Pages (`wrangler pages deploy` precisa da conta
+  do Pedro). O banco testado é o de verdade (Neon `space-iptv`), não um mock.
+- **SMTP**: não existe. A recuperação de senha é o reset pelo administrador e o link
+  "Esqueci minha senha" fica escondido (`/api/auth/capabilities` → `recovery:false`).

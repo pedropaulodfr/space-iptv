@@ -11,12 +11,12 @@
   App.favs = {
     has: function (it) { return !!App.store.get('favs', {})[key(it.t, it.id)]; },
     toggle: function (it) {
-      var f = App.store.get('favs', {}), k = key(it.t, it.id), on;
-      if (f[k]) { delete f[k]; on = false; }
-      else { f[k] = { t: it.t, id: it.id, n: it.n, l: it.l || '', ts: Date.now() }; on = true; }
+      var f = App.store.get('favs', {}), k = key(it.t, it.id), on, rec;
+      if (f[k]) { delete f[k]; on = false; rec = null; }
+      else { rec = f[k] = { t: it.t, id: it.id, n: it.n, l: it.l || '', ts: Date.now() }; on = true; }
       App.store.set('favs', f);
       numMap = null;
-      App.bus.emit('favs', { item: it, on: on });
+      App.bus.emit('favs', { item: it, on: on, key: k, list: lid(), rec: rec });
       return on;
     },
     /* itens favoritos da lista ativa (resolvidos no catalogo quando possivel) */
@@ -64,6 +64,8 @@
       h.unshift(rec);
       if (h.length > MAXH) h.length = MAXH;
       App.store.set('hist', h);
+      App.bus.emit('hist', { item: item, key: k, list: rec.list, rec: rec });
+      return rec;
     },
     get: function (item) {
       var h = App.store.get('hist', []), k = key(item.t, item.id), i;
@@ -71,7 +73,9 @@
       return null;
     },
     remove: function (item) {
-      App.store.set('hist', App.store.get('hist', []).filter(function (r) { return r.k !== key(item.t, item.id); }));
+      var k = key(item.t, item.id);
+      App.store.set('hist', App.store.get('hist', []).filter(function (r) { return r.k !== k; }));
+      App.bus.emit('hist', { item: item, key: k, list: lid(), removed: true });
     },
     /* filmes/episodios a meio caminho da lista ativa */
     continueList: function () {

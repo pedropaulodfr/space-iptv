@@ -40,15 +40,22 @@ const { spawn } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const argv = process.argv.slice(2);
-const flags = { json: false, spawn: false, url: 'http://127.0.0.1:8095', proxyUrl: '' };
+const flags = { json: false, spawn: false, url: '', proxyUrl: '', staticOnly: false };
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
   if (a === '--json') flags.json = true;
   else if (a === '--spawn') flags.spawn = true;
+  else if (a === '--static') flags.staticOnly = true;
   else if (a === '--url') flags.url = argv[++i] || '';
   else if (a === '--proxy-url') flags.proxyUrl = argv[++i] || '';
   else if (a === '--help' || a === '-h') {
-    console.log('Uso: node web/smoke.js [--url URL] [--proxy-url URL] [--spawn] [--json]');
+    console.log('Uso: node web/smoke.js [--url URL] [--static] [--spawn] [--json] [--proxy-url URL]');
+    console.log('');
+    console.log('  (padrão)   testa o contrato com login: / sem cookie = 302, /login.html = 200,');
+    console.log('             /api/* sem cookie = 401. Sobe as Pages Functions reais + o Postgres do Neon.');
+    console.log('  --url URL  testa esse servidor (precisa ter as Functions)');
+    console.log('  --static   testa só o servidor estático de assets (node web/server.js),');
+    console.log('             com MIME, traversal e /__proxy — sem login');
     process.exit(0);
   } else {
     console.error('Argumento desconhecido: ' + a);
@@ -334,6 +341,106 @@ async function testProxyOn(base) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Gate de login (o contrato novo do app)                              */
+/* ------------------------------------------------------------------ */
+
+let fixtures = null;
+let runner = null;
+
+async function startGateServer() {
+  fixtures = require('../tools/db-fixtures.js');
+  const { createPagesServer } = require('../tools/pages-runner.js');
+  const env = fixtures.loadEnv({ AUTH_RECOVERY_ENABLED: 'false' });
+  await fixtures.cleanup(env);
+  await fixtures.seedUser(env, { email: 'smoke@e2e.local', password: 'senha-de-teste', name: 'Smoke', role: 'admin' });
+  runner = createPagesServer({ dir: 'dist/web', env: env });
+  smokeEnv = env;
+  return runner.listen(0);
+}
+
+async function stopGateServer() {
+  if (runner) { await runner.close(); runner = null; }
+  if (fixtures && smokeEnv) {
+    try { await fixtures.cleanup(smokeEnv); } catch (e) { /* ignore */ }
+  }
+  fixtures = null;
+}
+
+let smokeEnv = null;
+
+/* Contrato da versão com login: / sem cookie é 302, /login.html é 200,
+   assets continuam 200 e a API responde 401 em JSON. */
+async function testGate(base) {
+  group('gate de login');
+
+  const home = await request(base, '/');
+  if (home.status === 302) pass('/ sem cookie responde 302'); else fail('/ sem cookie responde 302', 'veio ' + home.status);
+  if (header(home, 'location') === '/login.html?next=%2F') pass('Location = /login.html?next=%2F');
+  else fail('Location = /login.html?next=%2F', header(home, 'location') || 'sem Location');
+  if (/no-store/.test(header(home, 'cache-control'))) pass('302 tem Cache-Control: no-store');
+  else fail('302 tem Cache-Control: no-store', header(home, 'cache-control') || 'ausente');
+
+  const login = await request(base, '/login.html');
+  if (login.status === 200 && /text\/html/.test(header(login, 'content-type'))) pass('/login.html é 200 text/html');
+  else fail('/login.html é 200 text/html', login.status + ' ' + header(login, 'content-type'));
+  if (login.body.indexOf('id="login-form"') >= 0) pass('/login.html tem o formulário');
+  else fail('/login.html tem o formulário');
+  if (String(header(login, 'content-security-policy')).indexOf("frame-ancestors 'none'") >= 0) {
+    pass('/login.html tem CSP anti-clickjacking');
+  } else {
+    fail('/login.html tem CSP anti-clickjacking', header(login, 'content-security-policy') || 'ausente');
+  }
+
+  const api = await request(base, '/api/sync/pull');
+  if (api.status === 401) pass('/api/sync/pull sem cookie responde 401'); else fail('/api/sync/pull sem cookie responde 401', 'veio ' + api.status);
+  let apiJson = null;
+  try { apiJson = JSON.parse(api.body); } catch (e) { apiJson = null; }
+  if (apiJson && apiJson.error === 'unauthorized') pass('401 usa {error:"unauthorized"}');
+  else fail('401 usa {error:"unauthorized"}', JSON.stringify(apiJson));
+
+  const asset = await request(base, '/web/js/shell.js');
+  if (asset.status === 200) pass('/web/js/shell.js continua 200 (asset não é gated)');
+  else fail('/web/js/shell.js continua 200 (asset não é gated)', 'veio ' + asset.status);
+
+  const loginRes = await request(base, '/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'smoke@e2e.local', password: 'senha-de-teste' })
+  });
+  if (loginRes.status === 200) pass('/api/auth/login com a conta de teste responde 200');
+  else fail('/api/auth/login com a conta de teste responde 200', 'veio ' + loginRes.status);
+  const cookies = loginRes.headers['set-cookie'] || [];
+  if (cookies.length && /HttpOnly/i.test(cookies.join(';'))) pass('cookies de sessão são HttpOnly');
+  else fail('cookies de sessão são HttpOnly', JSON.stringify(cookies));
+
+  const cookieHeader = cookies.map(function (c) { return String(c).split(';')[0]; }).join('; ');
+  if (cookieHeader) {
+    const logged = await request(base, '/', { headers: { Cookie: cookieHeader } });
+    if (logged.status === 200 && logged.body.indexOf('id="stage"') >= 0) pass('/ com cookie responde 200 e traz o palco');
+    else fail('/ com cookie responde 200 e traz o palco', 'status ' + logged.status);
+    if (/\bno-store\b/.test(header(logged, 'cache-control'))) pass('HTML autenticado é no-store');
+    else fail('HTML autenticado é no-store', header(logged, 'cache-control') || 'ausente');
+  }
+}
+
+async function testLogout(base) {
+  group('gate de login');
+  const loginRes = await request(base, '/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'smoke@e2e.local', password: 'senha-de-teste' })
+  });
+  const cookieHeader = (loginRes.headers['set-cookie'] || [])
+    .map(function (c) { return String(c).split(';')[0]; }).join('; ');
+  if (!cookieHeader) { fail('logout com sessão', 'login não devolveu cookie'); return; }
+  const out = await request(base, '/api/auth/logout', { method: 'POST', headers: { Cookie: cookieHeader }, body: '{}' });
+  if (out.status === 204) pass('POST /api/auth/logout responde 204'); else fail('POST /api/auth/logout responde 204', 'veio ' + out.status);
+  const cleared = (out.headers['set-cookie'] || []).join(';');
+  if (/sp_at=;|sp_at=;|Max-Age=0/i.test(cleared)) pass('logout apaga o cookie de sessão');
+  else fail('logout apaga o cookie de sessão', cleared || 'sem Set-Cookie');
+}
+
+/* ------------------------------------------------------------------ */
 /* Main                                                                */
 /* ------------------------------------------------------------------ */
 
@@ -342,56 +449,51 @@ async function testProxyOn(base) {
   let own = null;
 
   try {
-    const up = !flags.spawn && await alive(base);
-    if (!up) {
-      own = await spawnServer([]);
-      base = own.base;
-    }
-    console.log('Space IPTV — smoke do servidor web');
-    console.log('alvo: ' + base + (own ? '  (servidor temporário próprio; será encerrado)' : '  (servidor já no ar)'));
-    console.log('proxy esperado: desligado' + (flags.proxyUrl ? ' + servidor extra com --proxy' : ''));
-    console.log('');
-
-    await testStatic(base);
-    await testTraversal(base);
-    await testPing(base, false);
-    await testProxyOff(base);
-
-    if (flags.proxyUrl) {
-      const pbase = flags.proxyUrl.replace(/\/+$/, '');
-      if (await alive(pbase)) {
-        const ping = await request(pbase, '/__proxy/ping');
-        let pd = null;
-        try { pd = JSON.parse(ping.body); } catch (e) { pd = null; }
-        if (pd && pd.ok === true) {
-          await testPing(pbase, true);
-          await testProxyOn(pbase);
+    if (flags.staticOnly) {
+      /* modo antigo: só o servidor estático de assets (sem Functions) */
+      const up = !flags.spawn && await alive(base);
+      if (!up) {
+        own = await spawnServer([]);
+        base = own.base;
+      }
+      console.log('Space IPTV — smoke do servidor estático (assets, SEM login)');
+      console.log('alvo: ' + base + (own ? '  (servidor temporário próprio; será encerrado)' : '  (servidor já no ar)'));
+      console.log('');
+      await testStatic(base);
+      await testTraversal(base);
+      await testPing(base, false);
+      await testProxyOff(base);
+      if (flags.proxyUrl) {
+        const pbase = flags.proxyUrl.replace(/\/+$/, '');
+        if (await alive(pbase)) {
+          const ping = await request(pbase, '/__proxy/ping');
+          let pd = null;
+          try { pd = JSON.parse(ping.body); } catch (e) { pd = null; }
+          if (pd && pd.ok === true) {
+            await testPing(pbase, true);
+            await testProxyOn(pbase);
+          } else {
+            skip('proxy-url ' + pbase, 'ping não devolveu ok:true (servidor sem --proxy?)');
+          }
         } else {
-          skip('proxy-url ' + pbase, 'ping não devolveu ok:true (servidor sem --proxy?)');
+          skip('proxy-url ' + pbase, 'servidor não está no ar');
         }
-      } else {
-        skip('proxy-url ' + pbase, 'servidor não está no ar');
       }
     } else {
-      const pbase = 'http://127.0.0.1:8094';
-      if (await alive(pbase)) {
-        const ping = await request(pbase, '/__proxy/ping');
-        let pd = null;
-        try { pd = JSON.parse(ping.body); } catch (e) { pd = null; }
-        if (pd && pd.ok === true) {
-          group('proxy 8094 (detectado)');
-          pass('8094 está no ar com proxy ligado');
-          await testProxyOn(pbase);
-        }
-      } else {
-        group('proxy 8094 (detectado)');
-        skip('8094 com --proxy', 'não está no ar; casos de proxy ligado não executados');
-      }
+      /* padrão: contrato novo (login + gate), executando as Functions reais */
+      if (!base) base = await startGateServer();
+      console.log('Space IPTV — smoke do app com login (Pages Functions)');
+      console.log('alvo: ' + base + (flags.url ? '  (servidor já no ar)' : '  (servidor temporário próprio; será encerrado)'));
+      console.log('');
+      await testGate(base);
+      await testLogout(base);
+      skip('servidor estático puro (server.js)', 'use --static para testar MIME/traversal/proxy do server.js');
     }
   } catch (e) {
     fail('execução', e && e.message ? e.message : String(e));
   } finally {
     stopServers();
+    await stopGateServer();
   }
 
   console.log('');

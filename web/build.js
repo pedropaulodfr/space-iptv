@@ -34,6 +34,9 @@ const OUT_ENV = 'BUILD_OUT';
 /* Fontes copiadas. `label` agrupa a contagem no resumo final. */
 const SOURCES = [
   { from: 'web/index.html', to: 'index.html', kind: 'file', label: 'html' },
+  { from: 'web/login.html', to: 'login.html', kind: 'file', label: 'html' },
+  { from: 'web/_headers', to: '_headers', kind: 'file', label: 'edge' },
+  { from: 'web/_routes.json', to: '_routes.json', kind: 'file', label: 'edge' },
   { from: 'web/js', to: 'web/js', kind: 'dir', label: 'web' },
   { from: 'web/css', to: 'web/css', kind: 'dir', label: 'web' },
   { from: 'web/vendor', to: 'web/vendor', kind: 'dir', label: 'web' },
@@ -43,9 +46,27 @@ const SOURCES = [
   { from: 'tv/icon.png', to: 'tv/icon.png', kind: 'file', label: 'tv' }
 ];
 
+/* O diretorio de Functions NAO e copiado para dist/web: o wrangler o le da raiz
+   do repositorio (pages_build_output_dir aponta para dist/web). Aqui so
+   conferimos que ele existe e que os arquivos obrigatorios estao no lugar. */
+const FUNCTIONS_DIR = 'functions';
+
 /* Arquivos sem os quais o app nao funciona, mesmo que o diretorio exista. */
 const MUST_EXIST = [
   'web/index.html',
+  'web/login.html',
+  'web/_headers',
+  'web/_routes.json',
+  'web/js/login.js',
+  'web/js/session.js',
+  'web/js/sync.js',
+  'web/js/screens/admin.js',
+  'web/css/login.css',
+  'functions/_middleware.js',
+  'functions/api/auth/login.js',
+  'functions/api/sync/pull.js',
+  'functions/api/admin/users/index.js',
+  'functions/api/admin/users/[id].js',
   'web/js/keys.js',
   'web/js/pointers.js',
   'web/js/net.js',
@@ -172,6 +193,14 @@ function validateSources() {
   if (missing.length) fail('faltam arquivos essenciais: ' + missing.join(', '));
   const files = missingFiles();
   if (files.length) fail('faltam arquivos essenciais: ' + files.join(', '));
+  try {
+    if (!fs.statSync(path.join(ROOT, FUNCTIONS_DIR)).isDirectory()) {
+      fail('falta o diretorio ' + FUNCTIONS_DIR + '/ (Pages Functions)');
+    }
+  } catch (e) {
+    if (e instanceof BuildError) throw e;
+    fail('falta o diretorio ' + FUNCTIONS_DIR + '/ (Pages Functions)');
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -224,20 +253,23 @@ function walk(abs, base, out) {
   return out;
 }
 
-/* Referencias relativas de src/href do HTML e url() dos CSS precisam existir. */
+/* Referencias relativas de src/href dos HTML e url() dos CSS precisam existir. */
 function checkReferences(outAbs) {
   const missing = [];
-  const htmlFile = path.join(outAbs, 'index.html');
-
-  const html = fs.readFileSync(htmlFile, 'utf8');
+  const htmlFiles = walk(outAbs, outAbs, []).filter(function (rel) { return /\.html$/i.test(rel); });
   const refRe = /(?:src|href)\s*=\s*["']([^"']+)["']/gi;
-  let m;
-  while ((m = refRe.exec(html))) {
-    const ref = m[1].trim();
-    if (!ref || ref.charAt(0) === '#' || /^[a-z][a-z0-9+.-]*:/i.test(ref) || ref.indexOf('//') === 0) continue;
-    const rel = ref.split('#')[0].split('?')[0].replace(/^\.?\//, '');
-    if (!rel) continue;
-    if (!fs.existsSync(path.join(outAbs, rel))) missing.push(rel + ' (index.html)');
+
+  for (const htmlRel of htmlFiles) {
+    const html = fs.readFileSync(path.join(outAbs, htmlRel), 'utf8');
+    let m;
+    refRe.lastIndex = 0;
+    while ((m = refRe.exec(html))) {
+      const ref = m[1].trim();
+      if (!ref || ref.charAt(0) === '#' || /^[a-z][a-z0-9+.-]*:/i.test(ref) || ref.indexOf('//') === 0) continue;
+      const rel = ref.split('#')[0].split('?')[0].replace(/^\.?\//, '');
+      if (!rel) continue;
+      if (!fs.existsSync(path.join(outAbs, rel))) missing.push(rel + ' (' + htmlRel + ')');
+    }
   }
 
   const cssFiles = walk(outAbs, outAbs, []).filter(function (rel) { return /\.css$/i.test(rel); });
@@ -288,8 +320,13 @@ function rel(p) {
 }
 
 function report(outAbs, stats) {
-  const labels = ['html', 'web', 'tv'];
-  const names = { html: 'index.html', web: 'web/ (js, css, vendor)', tv: 'tv/ (js, css, fonts, icon.png)' };
+  const labels = ['html', 'edge', 'web', 'tv'];
+  const names = {
+    html: 'HTML (index.html, login.html)',
+    edge: 'edge (_headers, _routes.json)',
+    web: 'web/ (js, css, vendor)',
+    tv: 'tv/ (js, css, fonts, icon.png)'
+  };
   console.log('');
   console.log('Space IPTV - build web');
   console.log('  origem:  ' + ROOT);

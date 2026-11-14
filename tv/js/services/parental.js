@@ -45,11 +45,52 @@
 
   function paint() { App.bus.emit('parental', !App.parental.locked()); App.bus.emit('catalog'); }
 
+  /* PIN em PBKDF2-SHA256 (>= 150 mil iteracoes, salt de 16 bytes) para poder
+     viajar para a nuvem sem guardar o PIN em texto. Importante: um PIN de 4
+     digitos tem 10 mil combinacoes — o hash protege contra leitura casual do
+     armazenamento, NAO contra forca bruta. Quem segura o ataque e o limite de
+     tentativas e o fato de tudo acontecer no aparelho, nunca no servidor.
+     O formato antigo (sl.pinS selado) continua aceito para nao quebrar quem
+     ja tinha PIN, e continua sendo gravado para o app da TV. */
+  var PIN_ITER = 150000, PIN_SALT = 16;
+
+  function toHex(buf) {
+    var a = new Uint8Array(buf), s = '', i;
+    for (i = 0; i < a.length; i++) s += (a[i] + 0x100).toString(16).slice(1);
+    return s;
+  }
+  function fromHex(hex) {
+    var s = String(hex || ''), out = new Uint8Array(Math.floor(s.length / 2)), i;
+    for (i = 0; i < out.length; i++) out[i] = parseInt(s.substr(i * 2, 2), 16) || 0;
+    return out;
+  }
+  function enc(text) { return new TextEncoder().encode(text); }
+  function same(a, b) {
+    if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+    var diff = 0, i;
+    for (i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    return diff === 0;
+  }
+
+  /* hash em hex, ou '' quando o navegador nao tem WebCrypto (contexto inseguro). */
+  function derivePin(pin, saltHex) {
+    var subtle = g.crypto && g.crypto.subtle;
+    if (!subtle || !saltHex) return Promise.resolve('');
+    return subtle.importKey('raw', enc(String(pin)), 'PBKDF2', false, ['deriveBits'])
+      .then(function (key) {
+        return subtle.deriveBits(
+          { name: 'PBKDF2', salt: fromHex(saltHex), iterations: PIN_ITER, hash: 'SHA-256' },
+          key, 256
+        );
+      })
+      .then(toHex, function () { return ''; });
+  }
+
   App.parental = {
     LEN: 4,
 
     /* --- estado --- */
-    hasPin: function () { return !!App.store.get('pinS', ''); },
+    hasPin: function () { return !!(App.store.get('pinH', '') || App.store.get('pinS', '')); },
     enabled: function () { return !!App.store.get('pinOn', false) && App.parental.hasPin(); },
     unlocked: function () { return unlocked; },
     locked: function () { return App.parental.enabled() && !unlocked; },
@@ -85,15 +126,34 @@
 
     /* --- senha --- */
     setPin: function (pin) {
-      return App.secrets.seal(String(pin)).then(function (sealed) {
-        App.store.set('pinS', sealed);
-        App.store.set('pinOn', true);
-        unlocked = false;   /* ja entra bloqueado: e o efeito esperado ao definir a senha */
-        paint();
-        return true;
+      var salt = new Uint8Array(PIN_SALT), saltHex = '';
+      try {
+        if (g.crypto && g.crypto.getRandomValues) { g.crypto.getRandomValues(salt); saltHex = toHex(salt); }
+      } catch (e) { saltHex = ''; }
+      return derivePin(pin, saltHex).then(function (hash) {
+        var sealP = App.secrets.seal(String(pin)).then(function (sealed) {
+          /* formato antigo: mantem o app da TV funcionando */
+          if (sealed) App.store.set('pinS', sealed);
+        });
+        return sealP.then(function () {
+          if (hash && saltHex) {
+            App.store.set('pinH', hash);
+            App.store.set('pinSalt', saltHex);
+          }
+          App.store.set('pinOn', true);
+          unlocked = false;   /* ja entra bloqueado: e o efeito esperado ao definir a senha */
+          paint();
+          return true;
+        });
       });
     },
     check: function (pin) {
+      var hash = App.store.get('pinH', '');
+      if (hash) {
+        var salt = App.store.get('pinSalt', '');
+        if (!salt) return Promise.resolve(false);
+        return derivePin(pin, salt).then(function (calc) { return !!calc && same(calc, hash); });
+      }
       if (!App.parental.hasPin()) return Promise.resolve(false);
       return App.secrets.open(App.store.get('pinS', '')).then(function (real) { return !!real && real === String(pin); });
     },
@@ -102,7 +162,10 @@
       unlocked = !on;
       paint();
     },
-    clear: function () { App.store.del('pinS'); App.store.set('pinOn', false); unlocked = true; paint(); },
+    clear: function () {
+      App.store.del('pinS'); App.store.del('pinH'); App.store.del('pinSalt');
+      App.store.set('pinOn', false); unlocked = true; paint();
+    },
 
     /* --- sessao --- */
     unlock: function () { unlocked = true; paint(); },

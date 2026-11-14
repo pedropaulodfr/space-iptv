@@ -1,0 +1,20 @@
+{
+  // Space IPTV - configuracao do Cloudflare Pages (Functions + assets estaticos).
+  //
+  // `pages_build_output_dir` aponta para o build estatico; o diretorio `functions/`
+  // fica na raiz do repositorio (e de la que o wrangler compila as Functions).
+  //
+  // Desenvolvimento:  npx wrangler pages dev
+  // Publicacao:      node web/build.js && npx wrangler pages deploy
+  //
+  // As variaveis abaixo NAO entram no repositorio: use `.dev.vars` (local, gitignored)
+  // e "Settings > Variables and Secrets" do projeto Pages (producao e preview).
+  "name": "space-iptv",
+  "pages_build_output_dir": "./dist/web",
+  "compatibility_date": "2026-11-01",
+  "vars": {
+    // Lido por /api/auth/capabilities. Desligue quando nao houver SMTP configurado
+    // disponível: sem SMTP, o link "Esqueci minha senha" não aparece e o reset é pelo admin.
+    "AUTH_RECOVERY_ENABLED": "false"
+  }
+}

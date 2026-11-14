@@ -659,6 +659,10 @@ function start(config) {
     console.log('Space IPTV web em http://' + shownHost + ':' + config.port + '/');
     console.log('  raiz: ' + ROOT);
     console.log('  proxy local: ' + (config.proxy ? 'ATIVO em /__proxy (opt-in)' : 'desativado (use --proxy)'));
+    console.warn('  AVISO: este servidor serve SÓ os assets. Ele não roda as Pages Functions, então');
+    console.warn('  AVISO: não existe login aqui. Para o app completo use:');
+    console.warn('  AVISO:   node web/build.js && node tools/pages-runner.js   (local, com o banco do Neon)');
+    console.warn('  AVISO:   npx wrangler pages dev                            (local, com o runtime do Cloudflare)');
     if (!isLoopback(config.host)) {
       console.warn('');
       console.warn('  AVISO: escutando em ' + config.host + ' (visivel para outras maquinas).');

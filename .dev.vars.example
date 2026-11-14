@@ -1,0 +1,19 @@
+# Space IPTV — variáveis locais do site (wrangler pages dev / tools/pages-runner.js).
+#
+# Copie para `.dev.vars` na raiz e preencha. `.dev.vars` é gitignored: nunca
+# comite os valores reais. No Cloudflare Pages, cadastre as MESMAS variáveis em
+# Settings → Variables and Secrets (Production e Preview).
+
+# Conexão do papel de aplicação `space_app` (DML apenas; a RLS aplica).
+# Monte com: alter role space_app login password '...'
+NEON_APP_URL=postgresql://space_app:TROQUE-ESTA-SENHA@<host>.neon.tech/neondb?sslmode=require
+
+# Segredo que assina o token de acesso (HMAC-SHA256). Mínimo 32 caracteres.
+# Gere com: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+AUTH_SECRET=
+
+# Não há SMTP: a recuperação é o reset pelo administrador.
+AUTH_RECOVERY_ENABLED=false
+
+# Somente para migrações/administração manual (NÃO vai para o Pages).
+NEON_DATABASE_URL=postgresql://neondb_owner:TROQUE-ESTA-SENHA@<host>.neon.tech/neondb?sslmode=require

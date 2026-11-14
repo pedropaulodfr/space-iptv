@@ -7,8 +7,10 @@ próprio usuário, com a mesma identidade visual e a mesma camada de negócio do
 O alvo é **desktop recente** (Chrome/Edge), com **teclado como entrada principal** e mouse
 funcional. O app da TV (Tizen) e o APK Android continuam sendo projetos separados.
 
-- Servidor local: `node web/server.js` → <http://127.0.0.1:8095/>
+- Servidor local: `node web/server.js` → <http://127.0.0.1:8095/> (só assets; **sem login**)
+- App completo local: `node tools/pages-runner.js` → <http://127.0.0.1:8788> (com as Functions)
 - Build estático: `node web/build.js` → `dist/web/`
+- Login, Neon e deploy: [`../SETUP-NEON.md`](../SETUP-NEON.md)
 - Documentação geral do projeto: [`../README.md`](../README.md) e [`../HANDOFF.md`](../HANDOFF.md)
 - Reconhecimento técnico da versão web (mapa de contratos e riscos): [`NOTES.md`](NOTES.md)
 
@@ -72,6 +74,64 @@ $env:HOST_IP='127.0.0.1'; node tools/mock-streams.js
   player**. `HOST_IP=127.0.0.1` é necessário para as URLs saírem no endereço da sua máquina.
 - Xtream de teste: servidor `http://127.0.0.1:8080`, usuário `test`, senha `test`.
 
+## Listas por arquivo (.m3u/.m3u8)
+
+Além de M3U por URL e Xtream Codes, a versão web aceita **upload de arquivo local**:
+
+- Em **Configurações → + Adicionar lista por arquivo (.m3u/.m3u8)**;
+- o arquivo é lido no navegador e guardado no **IndexedDB** (não é enviado a servidor);
+- limite de **20 MB**, com preview de canais/filmes/séries e validação do parser;
+- a lista sobrevive a reload, pode ser renomeada/reaberta em **Editar** e excluída; excluir apaga o texto local;
+- o upload resolve apenas a origem da lista: os streams continuam sujeitos a **CORS** e **mixed content** (HTTPS × HTTP).
+
+## Login e administração
+
+A versão web agora exige login. O bloqueio acontece **no edge**, com Cloudflare
+Pages Functions (`functions/_middleware.js`), a identidade é **própria** (tabelas
+`app_users`/`app_sessions`, senha em bcrypt) e os dados ficam no **Postgres da
+Neon**. O passo a passo completo (projeto, variáveis, deploy e recuperação de
+acesso) está em [`../SETUP-NEON.md`](../SETUP-NEON.md).
+
+Como funciona:
+
+```
+GET /            ──middleware──► sem cookie → 302 /login.html?next=%2F
+                                └─ com cookie → index.html (só para logado)
+GET /login.html  ── público (formulário; "esqueci minha senha" não aparece sem SMTP)
+GET /api/auth/*  ── login/logout/sessão/troca de senha (SQL no Neon, senha em bcrypt)
+GET /api/sync/*  ── dados do usuário em UMA transação, com RLS por app.uid
+GET /api/admin/* ── administração de contas (só token com papel admin) + auditoria
+```
+
+- **Token nunca vai para o JavaScript da página.** `sp_at` (15 min) e `sp_rt`
+  (30 dias) são cookies `HttpOnly; SameSite=Lax; Path=/`; o cliente chama `/api/*`
+  na mesma origem.
+- **Papel/autorização** vive em `app_metadata` (só o servidor escreve), nunca em
+  `user_metadata`. A regra de verdade é a **RLS**; o `if` do endpoint é conveniência.
+- **Cadastro público desligado**: só o admin cria conta (Administração → Novo usuário).
+- **Sincronização por usuário**: listas, credenciais, favoritos, histórico, PIN
+  parental e preferências vão para o Postgres. O **catálogo não sincroniza** (é
+  derivado da lista e continua no IndexedDB).
+- **Offline não perde nada**: as mutações entram numa fila persistente e são
+  reenviadas com backoff (1 s → 30 s). O HUD mostra "Sincronizando…",
+  "Não sincronizado" ou "Offline".
+- **Tela de Administração** (só para admin): criar/editar/desativar/excluir contas,
+  resetar senha (senha temporária exibida uma única vez), busca e auditoria.
+  Ninguém desativa/rebaixa/exclui a si mesmo e sempre sobra ≥ 1 admin ativo.
+
+Arquivos novos na web:
+
+| Arquivo | Papel |
+|---|---|
+| `login.html`, `css/login.css`, `js/login.js` | tela de login autocontida (não carrega `tv/js`) |
+| `js/session.js` | `App.session`: init, user, isAdmin, logout, trocar senha |
+| `js/sync.js` | `App.sync`: pull no boot, fila de push, migração do storage antigo |
+| `js/screens/admin.js` | tela `App.screens.admin` (menu condicional) |
+| `_headers`, `_routes.json` | CSP/headers dos estáticos e escopo das Functions |
+
+No HUD: e-mail do usuário logado e o badge de sincronização. Em Configurações
+aparece o bloco **Conta** (e-mail, papel, alterar senha, sair) para todos os papéis.
+
 ## Build estático
 
 ```powershell
@@ -84,9 +144,13 @@ arquivos com a mesma estrutura relativa do `index.html`.
 ```
 dist/web/
   index.html
+  login.html
+  _headers                 segurança dos estáticos (CSP etc.)
+  _routes.json             quais rotas invocam Functions
   web/
-    js/      keys.js, pointers.js, net.js, player.js, shell.js
-    css/     web.css
+    js/      keys.js, pointers.js, net.js, session.js, sync.js, player.js,
+             screens/admin.js, shell.js, login.js
+    css/     web.css, login.css
     vendor/  hls.min.js (v1.5.18), mpegts.min.js (v1.8.0)
   tv/
     js/      camada de negócio compartilhada (inclui os arquivos da TV que a web não carrega)
@@ -95,6 +159,10 @@ dist/web/
     icon.png
 ```
 
+> `functions/` **não** é copiado para `dist/web`: o `wrangler.jsonc` aponta
+> `pages_build_output_dir` para `./dist/web` e compila as Functions a partir da raiz
+> do repositório. O build só confere que o diretório e os arquivos obrigatórios existem.
+
 - `--out <pasta>` (ou env `BUILD_OUT`) muda o destino; o padrão é `dist/web`. O destino precisa
   ficar **dentro do repositório** e fora de `web/`, `tv/`, `tools/`, `celular/` e `projetor/`
   (o build limpa o destino antes de copiar — não deixamos apontar para as fontes).
@@ -102,7 +170,7 @@ dist/web/
   com a lista do que falta **antes** de tocar no destino.
 - Ao final ele valida as referências relativas do `index.html` e os `url()` dos CSS, recusa
   arquivos de desenvolvimento no destino e imprime a contagem de arquivos/bytes e o caminho
-  final. Medido nesta entrega: **42 arquivos, ~1,3 MB**.
+  final. Medido nesta entrega: **50 arquivos, ~1,4 MB**.
 - O `web/` do destino é a pasta `web/` real, mas só com `js`, `css` e `vendor`: `server.js`,
   `build.js`, `README.md`, `NOTES.md` e `dist/` **não** entram.
 
@@ -133,6 +201,14 @@ web/
   js/net.js         mensagens de CORS + proxy local opcional (App.net)
   js/player.js      App.player HTML5/HLS/TS com o mesmo contrato da TV
   js/shell.js       menu, HUD, troca de telas, startup, palco, tela cheia
+  js/session.js     App.session (quem está logado, admin, sair, trocar senha)
+  js/sync.js        App.sync (pull no boot + fila de push com backoff)
+  js/login.js       lógica da tela de login (página separada)
+  js/screens/admin.js  tela de Administração (só para admin)
+  login.html        tela de login autocontida
+  css/login.css     estilos da tela de login
+  _headers          CSP/headers de segurança dos estáticos
+  _routes.json      escopo das Pages Functions
   vendor/           hls.js e mpegts.js com versão fixa (sem CDN em runtime)
   server.js         servidor estático zero-dep (+ /__proxy opt-in)
   build.js          monta dist/web (cópia, sem minificar)
@@ -281,7 +357,7 @@ node web/server.js --proxy
 - **IndexedDB em modo privado**, cota de `localStorage` e persistência em navegadores com
   limpeza automática não são garantidos.
 - **Sem PWA/service worker**, sem Chromecast/AirPlay, sem EPG, sem DRM, sem gravação, sem
-  legendas externas e sem sincronização entre dispositivos — fora do escopo desta versão.
+  legendas externas — fora do escopo desta versão. A sincronização entre navegadores agora existe (listas, favoritos, histórico, PIN e preferências; o catálogo continua local).
 - **Celular/tablet**: o alvo é desktop. Toque funciona como “melhor esforço”; não há layout
   mobile dedicado nem suporte garantido.
 - **Saúde dos canais** sofre o limite de CORS: sem permissão de leitura, o canal fica cinza em
@@ -324,20 +400,25 @@ node web/server.js --proxy
 node web/build.js
 Get-ChildItem dist/web -Recurse -File | Measure-Object -Property Length -Sum
 
-# 2. Servir o build (qualquer servidor estático; exemplo com Python)
-python -m http.server 8123 --directory dist/web
-# abra http://127.0.0.1:8123/ e confira a aba Network sem 404
-# para simular subpasta, sirva a pasta que contém dist/web e abra /web/index.html
+# 2. App com login (Pages Functions) — banco do Neon + runner em Node
+node tools/test-auth.js            # 96 casos de aceite (banco real, contas @e2e.local)
+node web/smoke.js                  # contrato com login (302/200/401) + CSP
+node tools/e2e-login.js            # Edge headless: login, menu admin e sync (capturas em tools/_shots)
 
-# 3. App em desenvolvimento
+# 3. Abrir o app no navegador (local)
+node tools/pages-runner.js         # http://127.0.0.1:8788 (lê .dev.vars)
+#    contas do mock: admin@test.local / user@test.local (senha: senha-de-teste)
+#    com o banco do Neon: node tools/pages-runner.js  (lê o .dev.vars)
+
+# 4. Servidor estático antigo (só assets, SEM login) — testes de MIME/traversal/proxy
 node web/server.js
-# abra http://127.0.0.1:8095/
+node web/smoke.js --static
 
-# 4. Mocks (em outros terminais)
+# 5. Mocks de listas/streams (em outros terminais)
 node tools/mock-server.js
 $env:HOST_IP='127.0.0.1'; node tools/mock-streams.js
 
-# 5. Testes Node da camada compartilhada
+# 6. Testes Node da camada compartilhada
 node tools/test-m3u.js
 node tools/test-resume.js
 node tools/test-health.js
@@ -345,17 +426,41 @@ node tools/test-health.js
 
 Checklist mínimo no navegador:
 
-- [ ] página carrega sem erro no console e sem 404 de assets;
+- [ ] `/` sem sessão cai em `/login.html?next=%2F`; login errado mostra a mensagem
+      genérica e o certo entra no app;
+- [ ] o menu lateral mostra **Administração** só para quem é admin; a tela lista
+      contas, cria uma com senha temporária e mostra a senha uma única vez;
+- [ ] desativar uma conta corta o login dela; reativar devolve;
+- [ ] Configurações mostra o bloco **Conta** (e-mail, papel, alterar senha, sair);
+- [ ] duas janelas anônimas com a mesma conta: a lista criada em uma aparece na
+      outra depois do reload (badge "Sincronizando…" → some);
 - [ ] navegação só com teclado (menu → telas → categorias → cards → detalhes → voltar);
-- [ ] adicionar lista M3U do mock (`http://127.0.0.1:8080/list.m3u`) e ver o catálogo;
 - [ ] abrir um canal HLS (`/hls/index.m3u8`), um TS (`/live/2.ts`) e um MP4 (`/movie/1.mp4`)
-      do `mock-streams`; trocar canal, abrir o painel (OK), favoritar (F) e sair (Esc);
+      do `mock-streams`; console **sem** `Refused to ...` da CSP;
+- [ ] controle parental: PIN antigo continua valendo e o novo sincroniza entre dois
+      navegadores;
 - [ ] mouse: hover move o foco, clique ativa, roda navega, clicar no campo permite digitar;
 - [ ] tela cheia pelo HUD e por F11; Esc sai da tela cheia sem fechar o player;
-- [ ] com `--proxy`, o badge “proxy local” aparece e os streams passam por `/__proxy`;
-- [ ] no build estático o badge não aparece e o app funciona sem proxy.
+- [ ] com `--proxy`, o badge “proxy local” aparece e os streams passam por `/__proxy`.
 
-### Testes executados nesta entrega (13/11/2026)
+### Testes executados nesta entrega (14/11/2026)
+
+- `node web/build.js`: **50 arquivos, ~1,4 MB** em `dist/web/` (inclui `login.html`,
+  `_headers`, `_routes.json`); nenhum `server.js`/`build.js`/`.md` no destino.
+- `node tools/test-auth.js`: **93 PASS, 0 FAIL** (gate, login, JWT forjado, open
+  redirect, admin e guardrails, sync, RLS, CSRF, capabilities, senha, build).
+- `node web/smoke.js`: **15 PASS, 0 FAIL** (contrato com login).
+- `node web/smoke.js --static`: **39 PASS, 0 FAIL** (MIME, traversal, proxy).
+- `node tools/e2e-login.js`: **18 PASS, 0 FAIL** no Edge headless (login, menu
+  condicional, tela de Administração, ida e volta da sincronização, zero violação de
+  CSP). Capturas em `tools/_shots/`: `login.png`, `admin.png`, `app-admin.png`, `app-user.png`.
+- `node --check` em todos os JS novos/alterados (Functions incluídas).
+- O `wrangler pages dev` **não** pôde rodar nesta máquina: o `workerd` falha ao criar
+  diretórios (`miniflare-email-store`, acesso negado), antes de executar qualquer
+  código do projeto. Por isso o runner em Node executa os mesmos módulos de
+  `functions/`; o deploy com wrangler está documentado em `SETUP-NEON.md`.
+
+### Testes executados na entrega anterior (13/11/2026)
 
 - `node web/build.js`: **42 arquivos, ~1,3 MB** em `dist/web/`; árvore conferida; nenhum
   `server.js`/`build.js`/`.md`/`state` no destino; segunda execução idempotente.

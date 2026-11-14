@@ -15,6 +15,24 @@
   App.clamp = function (v, a, b) { return v < a ? a : (v > b ? b : v); };
   App.uid = function () { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); };
 
+  /* UUID v4 para as listas (id estavel entre aparelhos). Usa crypto.randomUUID
+     quando existe; senao monta com getRandomValues (ou Math.random, por ultimo). */
+  App.uuid = function () {
+    try {
+      if (g.crypto && typeof g.crypto.randomUUID === 'function') return g.crypto.randomUUID();
+    } catch (e) { /* sem randomUUID */ }
+    var b = new Uint8Array(16), i, out = '';
+    if (g.crypto && typeof g.crypto.getRandomValues === 'function') g.crypto.getRandomValues(b);
+    else for (i = 0; i < 16; i++) b[i] = Math.floor(Math.random() * 256);
+    b[6] = (b[6] & 0x0f) | 0x40;   /* versao 4 */
+    b[8] = (b[8] & 0x3f) | 0x80;   /* variante RFC 4122 */
+    for (i = 0; i < 16; i++) {
+      if (i === 4 || i === 6 || i === 8 || i === 10) out += '-';
+      out += (b[i] + 0x100).toString(16).slice(1);
+    }
+    return out;
+  };
+
   App.hash = function (s) {
     var h = 5381, i;
     for (i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;

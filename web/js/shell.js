@@ -12,7 +12,8 @@
     series: '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>',
     search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/>',
     favs: '<path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.2 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/>',
-    settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>'
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
+    admin: '<path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M9 12l2 2 4-4"/>'
   };
   var MENU = [
     { id: 'home', label: 'Início', make: function () { return App.screens.home(App.shell); } },
@@ -22,8 +23,16 @@
     { id: 'search', label: 'Pesquisa', make: function () { return App.screens.results('search'); } },
     { id: 'favs', label: 'Favoritos', make: function () { return App.screens.results('favs'); } },
     { sep: true },
-    { id: 'settings', label: 'Configurações', make: function () { return App.screens.settings(); } }
+    { id: 'settings', label: 'Configurações', make: function () { return App.screens.settings(); } },
+    { id: 'admin', label: 'Administração', adminOnly: true, make: function () { return App.screens.admin(); } }
   ];
+
+  /* Administração só entra no menu para quem tem app_metadata.role = "admin". */
+  function menuEntries() {
+    return MENU.filter(function (m) {
+      return !m.adminOnly || (App.session && App.session.isAdmin());
+    });
+  }
 
   var side, screenEl, nodes = [], items = [], menuIdx = 0, curIdx = 0, area = 'menu', cur = null;
   var stage, warnEl, fitRaf = 0;
@@ -50,7 +59,9 @@
   /* ---------- menu lateral ---------- */
   function buildMenu() {
     side = document.getElementById('sidebar'); screenEl = document.getElementById('screen');
-    MENU.forEach(function (m) {
+    App.clear(side);
+    nodes = []; items = [];
+    menuEntries().forEach(function (m) {
       if (m.sep) { side.appendChild(App.el('div', 'nav-sep')); return; }
       var n = App.el('div', 'nav-item');
       n.innerHTML = icon(m.id);                       /* SVG estático do próprio app (sem dado remoto) */
@@ -158,6 +169,34 @@
     var l = App.lists.active();
     document.getElementById('hud-list').textContent = l ? l.name : 'Sem lista';
   }
+
+  /* E-mail do usuario logado (truncado; title com o completo). */
+  function paintUser() {
+    var el = document.getElementById('hud-user');
+    if (!el) return;
+    var u = App.session && App.session.user ? App.session.user() : null;
+    if (!u) { el.hidden = true; return; }
+    var email = u.email || '';
+    el.hidden = false;
+    el.textContent = email.length > 30 ? email.slice(0, 29) + '…' : email;
+    el.title = email + (u.role === 'admin' ? ' • administrador' : '');
+  }
+
+  /* Badge de sincronizacao: oculto em dia, "Sincronizando…" no push,
+     "Não sincronizado" com fila pendente e "Offline" sem rede. */
+  function paintSync(info) {
+    var el = document.getElementById('hud-sync');
+    if (!el) return;
+    var st = (info && info.state) || 'idle';
+    if (st === 'idle') { el.hidden = true; el.textContent = ''; el.className = 'badge'; return; }
+    el.hidden = false;
+    if (st === 'pushing') { el.className = 'badge'; el.textContent = 'Sincronizando…'; }
+    else if (st === 'offline') { el.className = 'badge warn'; el.textContent = 'Offline'; }
+    else { el.className = 'badge warn'; el.textContent = 'Não sincronizado'; }
+    el.title = (info && info.pending ? info.pending + ' alteração(ões) pendente(s). ' : '') +
+      'Os dados são sincronizados com a sua conta.';
+  }
+  App.bus.on('sync', paintSync);
   function paintProxy() {
     var el = document.getElementById('hud-proxy');
     if (!el) return;
@@ -240,42 +279,61 @@
     syncFsBtn();
   }
 
-  /* ---------- inicialização (mesma ordem da TV) ---------- */
+  /* ---------- inicialização (mesma ordem da TV, com sessão e sync antes) ---------- */
   function start() {
     stage = document.getElementById('stage');
     warnEl = document.getElementById('stage-warn');
     App.registerKeys();
-    buildMenu(); clock(); setInterval(clock, 30000);
+    clock(); setInterval(clock, 30000);
     App.nav.push(shellLayer);
     App.starfield.start();
-    var l = App.lists.active();
-    hudList(); refreshStatus(); paintProxy();
-    show(0); App.shell.intoScreen();
 
-    /* App.net SEMPRE antes do primeiro uso do catálogo — inclusive no boot sem lista,
-       para o badge "proxy local" aparecer já na tela de Configurações. */
-    var netReady;
-    try {
-      netReady = App.net && typeof App.net.init === 'function'
-        ? Promise.resolve(App.net.init()).then(null, function () { return false; })
-        : Promise.resolve(false);
-    } catch (e) { netReady = Promise.resolve(false); }
-    netReady.then(function () { paintProxy(); });
+    /* 1. sessão (o gate já garantiu o cookie; aqui sabemos e-mail e papel);
+       2. sync (pull antes do catálogo, para a tela já ver os dados da conta);
+       3. menu (com "Administração" só para admin), telas e catálogo. */
+    var sessionReady = (App.session && typeof App.session.init === 'function')
+      ? App.session.init()
+      : Promise.resolve(true);
 
-    if (!l) { App.shell.goto('settings'); App.toast('Adicione uma lista para começar'); return; }
-
-    netReady.then(function () {
-      return App.catalog.init(l);
-    }).then(function (has) {
-      /* retomada do último canal: depois do catálogo, uma única vez, nunca adulto */
-      var alvo = App.resume.startup();
-      if (alvo && App.player && typeof App.player.play === 'function') {
-        var itens = App.catalog.items('live', alvo.c);
-        App.actions.playLive(alvo, itens && itens.length ? itens : null);
+    sessionReady.then(function (ok) {
+      if (!ok) return false;                       /* session.init já redirecionou */
+      paintUser();
+      if (App.sync && typeof App.sync.init === 'function') {
+        return Promise.resolve(App.sync.init()).then(function () { return true; }, function () { return true; });
       }
-      if (App.isOnline() && (!has || App.catalog.needsRefresh())) App.catalog.refresh(l);
-      else if (!App.isOnline()) refreshStatus();
-    }).then(null, function (e) { App.log('falha na inicialização web', e && e.message); });
+      return true;
+    }).then(function (go) {
+      if (!go) return;
+      buildMenu();
+      var l = App.lists.active();
+      hudList(); refreshStatus(); paintProxy();
+      show(0); App.shell.intoScreen();
+
+      /* App.net SEMPRE antes do primeiro uso do catálogo — inclusive no boot sem lista,
+         para o badge "proxy local" aparecer já na tela de Configurações. */
+      var netReady;
+      try {
+        netReady = App.net && typeof App.net.init === 'function'
+          ? Promise.resolve(App.net.init()).then(null, function () { return false; })
+          : Promise.resolve(false);
+      } catch (e) { netReady = Promise.resolve(false); }
+      netReady.then(function () { paintProxy(); });
+
+      if (!l) { App.shell.goto('settings'); App.toast('Adicione uma lista para começar'); return; }
+
+      netReady.then(function () {
+        return App.catalog.init(l);
+      }).then(function (has) {
+        /* retomada do último canal: depois do catálogo, uma única vez, nunca adulto */
+        var alvo = App.resume.startup();
+        if (alvo && App.player && typeof App.player.play === 'function') {
+          var itens = App.catalog.items('live', alvo.c);
+          App.actions.playLive(alvo, itens && itens.length ? itens : null);
+        }
+        if (App.isOnline() && (!has || App.catalog.needsRefresh())) App.catalog.refresh(l);
+        else if (!App.isOnline()) refreshStatus();
+      }).then(null, function (e) { App.log('falha na inicialização web', e && e.message); });
+    });
   }
 
   stage = document.getElementById('stage');

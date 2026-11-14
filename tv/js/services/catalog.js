@@ -34,6 +34,18 @@
     });
   }
 
+  /* M3U enviado como arquivo: o texto esta no IndexedDB local, sem rede. */
+  function loadM3uFile(list, prog) {
+    return App.lists.readM3uFile(list).then(function (text) {
+      prog(0.25);
+      return App.m3u.parse(text).then(function (r) {
+        r.bytes = text.length;
+        prog(0.95);
+        return r;
+      });
+    });
+  }
+
   /* Episodios M3U vao para blocos separados no IndexedDB (so lidos ao abrir a serie) */
   function saveCache(list, d, now) {
     var id = list.id, packed = d.epPacked || [], C = App.m3u.EPCHUNK, n = Math.ceil(packed.length / C), k = 0;
@@ -91,7 +103,7 @@
       var lastP = -1;
       var prog = function (p) { var q = Math.round(p * 100); if (q !== lastP) { lastP = q; App.bus.emit('catalog:loading', p); } };
       return App.lists.creds(list).then(function (c) {
-        if (list.type === 'm3u') return loadM3u(list, c, prog);
+        if (list.type === 'm3u') return list.source === 'file' ? loadM3uFile(list, prog) : loadM3u(list, c, prog);
         return App.xtream.fetchAll(c, prog);
       }).then(function (d) {
         var now = Date.now();

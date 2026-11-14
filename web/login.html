@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Entrar — Space IPTV</title>
+<link rel="icon" type="image/png" href="tv/icon.png">
+<link rel="stylesheet" href="tv/css/design-system.css">
+<link rel="stylesheet" href="web/css/login.css">
+</head>
+<body class="login-page">
+<main class="login-main">
+  <section class="login-card glass-panel" aria-labelledby="login-title">
+    <div class="login-brand">
+      <span class="login-logo" aria-hidden="true"></span>
+      <h1 id="login-title" class="display">SPACE IPTV</h1>
+    </div>
+    <p class="login-sub">Acesso restrito. Entre com a conta que o administrador criou para você.</p>
+
+    <form id="login-form" class="login-form" novalidate>
+      <div class="login-field">
+        <label for="email">E-mail</label>
+        <input id="email" name="email" type="email" inputmode="email" autocomplete="username"
+               spellcheck="false" autocapitalize="off" required aria-describedby="login-error">
+      </div>
+
+      <div class="login-field">
+        <label for="password">Senha</label>
+        <div class="login-password">
+          <input id="password" name="password" type="password" autocomplete="current-password" required
+                 aria-describedby="login-error">
+          <button id="toggle-password" class="login-eye" type="button" aria-pressed="false"
+                  aria-label="Mostrar senha" title="Mostrar senha">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/>
+              <circle cx="12" cy="12" r="2.8"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <p id="login-error" class="login-error" role="alert" aria-live="assertive"></p>
+
+      <button id="login-submit" class="login-submit" type="submit">Entrar</button>
+
+      <button id="forgot-toggle" class="login-link" type="button" hidden>Esqueci minha senha</button>
+    </form>
+
+    <form id="forgot-form" class="login-form" hidden>
+      <p class="login-note">Informe o e-mail da sua conta. Se ele existir, enviaremos as instruções para criar uma nova senha.</p>
+      <div class="login-field">
+        <label for="forgot-email">E-mail</label>
+        <input id="forgot-email" name="email" type="email" inputmode="email" autocomplete="username"
+               spellcheck="false" autocapitalize="off" required>
+      </div>
+      <p id="forgot-status" class="login-status" role="status" aria-live="polite"></p>
+      <div class="login-row">
+        <button id="forgot-submit" class="login-submit" type="submit">Enviar instruções</button>
+        <button id="forgot-cancel" class="login-link" type="button">Voltar</button>
+      </div>
+    </form>
+
+    <details class="login-privacy" id="privacidade">
+      <summary>Política de privacidade</summary>
+      <p>O Space IPTV é um reprodutor de listas fornecidas por você. Não incluímos canais nem conteúdo.
+         Guardamos apenas o e-mail da sua conta, suas listas e suas preferências, para que o app funcione
+         em qualquer navegador. Não há telemetria, anúncios nem compartilhamento com terceiros. As listas
+         são acessadas diretamente nos servidores do seu provedor.</p>
+    </details>
+  </section>
+
+  <footer class="login-footer">
+    <p>Space IPTV 1.0 • Reprodutor de listas fornecidas por você. O aplicativo não inclui canais nem conteúdo.</p>
+  </footer>
+</main>
+
+<script src="web/js/login.js"></script>
+</body>
+</html>

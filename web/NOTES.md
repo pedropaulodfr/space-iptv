@@ -182,3 +182,83 @@ Regras: `init()` antes do `App.catalog.init` no shell; se o ping falhar, `net` f
   `test-compat` OK, `web/smoke.js` 49 PASS; CRUD M3U/Xtream, validação de URL, PIN, adulto oculto
   (5→4), cache/retomada, HLS/TS/MP4 e fullscreen verificados no Edge; HLS, catálogo e navegação
   também verificados no Firefox 159. Safari não testado.
+
+## 11. Login, administração e sincronização na Neon (14/11/2026)
+
+> **Migração para Neon:** o Supabase saiu do projeto. A identidade agora é própria
+> (`app_users`/`app_sessions` + bcrypt via pgcrypto), o token de acesso é HMAC-SHA256
+> assinado no edge e o banco é o Postgres da Neon (`db/001_init.sql`). Os contratos de
+> cliente (`/api/auth/*`, `/api/sync/*`, `/api/admin/*`) não mudaram. Ver `SETUP-NEON.md`.
+
+### 11.1 Onde o bloqueio vive
+
+- `functions/_middleware.js` roda **só** nas rotas de `web/_routes.json`
+  (`/`, `/index.html`, `/login.html`, `/api/*`). Assets (`web/js/*`, `tv/*`, fontes,
+  vendor) continuam estáticos e **não** invocam Function.
+- A verificação do token é **local**: `v1.<payload>.<hmac>` assinado com `AUTH_SECRET`
+  (HMAC-SHA256 via WebCrypto). Assinatura errada, `exp` fora da janela ou payload sem
+  `u`/`r` são recusados. Só o refresh (opaco) consulta `app_sessions` no banco.
+- Cookies `sp_at` / `sp_rt`: `HttpOnly; SameSite=Lax; Path=/` e `Secure` só em https.
+  `__Host-` não é usado para não quebrar `http://localhost`.
+- O refresh acontece **no máximo uma vez por requisição**; se falhar, os cookies são
+  apagados e a resposta vira 302 (página) ou 401 (API).
+- `context.data.auth = {payload, token}` é o único caminho de identidade para as rotas.
+  Nenhuma rota lê `user_id` do corpo: o push recusa a coluna e o banco ainda barra pela RLS.
+
+### 11.2 Contratos novos no cliente
+
+| Contrato | Onde | Observação |
+|---|---|---|
+| `App.session.init()->Promise<bool>` / `user()` / `isAdmin()` / `logout()` / `changePassword()` / `actions()` | `web/js/session.js` | `init` é memoizado; 401 redireciona para `/login.html` |
+| `App.sync.init()` / `flush()` / `pending()` / `status()` | `web/js/sync.js` | `init` faz pull **antes** do catálogo e assina o barramento |
+| `App.uuid()` | `tv/js/core/util.js` | `crypto.randomUUID()` com fallback; as listas novas nascem com UUID |
+| evento `lists` | `tv/js/services/lists.js` | `{action:'save'|'patch'|'active'|'remove'|'applied', id, record}` |
+| evento `favs` | `tv/js/services/userdata.js` | agora inclui `key`, `list` e `rec` |
+| evento `hist` | `tv/js/services/userdata.js` | `{item, key, list, rec}` ou `{... , removed:true}` |
+| evento `sync` | `web/js/sync.js` | `{state:'idle'|'pushing'|'pending'|'offline', pending}` → badge do HUD |
+| `App.parental` com PBKDF2 | `tv/js/services/parental.js` | `pinH` (hex) + `pinSalt`; `pinS` selado continua sendo gravado para a TV |
+
+### 11.3 Storage local (novas chaves)
+
+| Chave | Conteúdo |
+|---|---|
+| `sl.pinH`, `sl.pinSalt` | PIN parental em PBKDF2-SHA256 (150k iterações), hex |
+| `sl.migrated.<ts>` | backup do storage antigo antes da migração de ids |
+| `sl.lists.backup.<ts>` | backup do storage local quando a nuvem venceu o conflito |
+| `sl.syncq` | só fallback da fila (o normal é o IndexedDB `spaceiptv-sync`) |
+
+IndexedDB `spaceiptv-sync` (store `kv`, chave `queue`) é **separado** do banco do
+catálogo `spaceiptv` — nenhum bump de versão no banco compartilhado com a TV.
+
+### 11.4 Banco
+
+- `app_users` é a única tabela de identidade (e-mail único por `lower(email)`, papel,
+  `disabled`, hash bcrypt). Não existe espelho nem trigger em schema de terceiros.
+- O papel `space_app` não tem DDL; a RLS usa `app.uid`/`app.role` definidos na própria
+  transação (`set_config(..., true)`), então o banco também filtra por dono.
+- `favorites`/`history`/`playlist_secrets` usam **FK composta** `(user_id, playlist_id)`
+  → `playlists(user_id, id)`: não dá para referenciar lista de outro dono nem por engano.
+- `set_active_playlist(uuid)` é transacional — o índice único parcial
+  `playlists_one_active` não aceita duas listas ativas.
+- `admin_audit` só aceita insert/select no contexto `app.role = 'admin'`.
+
+### 11.5 Riscos conhecidos (aceitos e documentados)
+
+1. **Revogação em até 15 min** para o token de acesso. Desativar/excluir/resetar revoga
+   todas as sessões na hora (o refresh para imediatamente), mas um token já emitido
+   continua válido até expirar.
+2. **Credenciais em claro na nuvem**: `playlist_secrets.m3u_url` e `xtream_pass` são
+   texto puro no Postgres (TLS e criptografia em repouso da Neon). Quem tem a credencial
+   `neondb_owner` lê. O cliente **sela de novo** com `App.secrets.seal` ao aplicar no
+   aparelho.
+3. **PIN de 4 dígitos** tem 10 mil combinações: o PBKDF2 protege contra leitura casual,
+   não contra força bruta. Quem segura é o limite de tentativas e o fato de o hash nunca
+   ser verificado no servidor.
+4. **Relógio do cliente** decide o vencedor do conflito de playlist (`updated_at`). Com
+   relógios muito errados, uma edição pode perder para outra; o servidor devolve
+   `conflicts` e o cliente aceita a linha vencedora.
+5. **`wrangler pages dev` não roda nesta máquina** (workerd falha ao criar diretório do
+   email-store antes de executar código do projeto). O runner `tools/pages-runner.js`
+   executa os mesmos módulos em Node para os testes; o deploy com wrangler está em
+   `SETUP-NEON.md`.
+6. **Sem 2FA, sem convite por e-mail, sem "ver como"**: fora do escopo desta fase.

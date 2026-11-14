@@ -31,6 +31,16 @@ tools/*.err
 # Painel de agentes: estado e timeline são de execução, não de código.
 tools/agents-live/state/
 
+# ---- Login / Pages Functions ------------------------------------------------
+# Segredos locais do wrangler (nunca comitar) e estado de desenvolvimento.
+.dev.vars
+.env
+.env.local
+.wrangler/
+.tools/
+miniflare-email-store/
+probe-disk/
+
 # ---- Sistema / editor --------------------------------------------------------
 Thumbs.db
 desktop.ini
