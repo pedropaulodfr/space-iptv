@@ -54,6 +54,45 @@ function allowedHost(env, hostname) {
   return list.some(function (h) { return host === h || host.slice(-(h.length + 1)) === '.' + h; });
 }
 
+/* O Workers fetch recusa IP literal que pertence à Cloudflare com 1003. Um
+ * hostname público que resolve para o mesmo IP (sslip.io) faz a requisição
+ * funcionar; só aplicamos a IPs que já estão na allowlist. */
+function isIPv4(hostname) {
+  const parts = String(hostname || '').split('.');
+  return parts.length === 4 && parts.every(function (p) {
+    return /^\d{1,3}$/.test(p) && Number(p) >= 0 && Number(p) <= 255;
+  });
+}
+
+function fetchUrl(url) {
+  if (url.protocol !== 'http:' || !isIPv4(url.hostname)) return url.href;
+  const u = new URL(url.href);
+  u.hostname = url.hostname + '.sslip.io';
+  return u.href;
+}
+
+async function fetchUpstream(target, headers, method, env) {
+  let current = target.href;
+  for (let hop = 0; hop < 8; hop++) {
+    const cur = new URL(current);
+    if (!allowedHost(env, cur.hostname)) return { forbidden: cur.hostname };
+    const response = await fetch(fetchUrl(cur), {
+      method: method,
+      redirect: 'manual',
+      headers: headers
+    });
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
+      if (!location) return { response: response, finalUrl: current };
+      try { await response.body.cancel(); } catch (e) { /* ignore */ }
+      try { current = new URL(location, current).href; } catch (e) { return { invalid: true }; }
+      continue;
+    }
+    return { response: response, finalUrl: current };
+  }
+  return { loop: true };
+}
+
 function passHeaders(upstream, includeLength) {
   const h = new Headers();
   const ct = upstream.headers.get('content-type');
@@ -141,28 +180,23 @@ export async function onRequest(context) {
   const ifRange = request.headers.get('If-Range');
   if (ifRange) headers.set('If-Range', ifRange);
 
-  let upstream;
+  let result;
   try {
-    upstream = await fetch(target.href, {
-      method: request.method,
-      redirect: 'follow',
-      headers: headers
-    });
+    result = await fetchUpstream(target, headers, request.method, env);
   } catch (e) {
     return text(502, 'Não foi possível acessar o servidor de origem.');
   }
-
-  const finalUrl = upstream.url || target.href;
-  const final = new URL(finalUrl);
-  if (!allowedHost(env, final.hostname)) {
-    return text(403, 'Redirecionamento para host não autorizado.');
-  }
+  if (result.forbidden) return text(403, 'Redirecionamento para host não autorizado.');
+  if (result.invalid || result.loop) return text(502, 'Redirecionamentos inválidos no provedor.');
+  const upstream = result.response;
+  const finalUrl = result.finalUrl;
 
   if (request.method === 'HEAD' || !upstream.body) {
     return new Response(null, { status: upstream.status, headers: passHeaders(upstream, true) });
   }
 
   const contentType = upstream.headers.get('content-type') || '';
+  const final = new URL(finalUrl);
   if (upstream.status === 200 && isPlaylist(contentType, final.pathname)) {
     const body = await upstream.text();
     if (body.length > MAX_PLAYLIST) return text(502, 'Playlist grande demais.');

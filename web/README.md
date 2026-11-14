@@ -352,6 +352,9 @@ o caso de **stream http:// em página https://** e de certificado autoassinado n
 
 - a Function busca a origem via `fetch` (HTTP é permitido no servidor), devolve os bytes por
   HTTPS same-origin, repassa `Range` e reescreve playlists HLS (`URI`, `KEY`, `MAP`);
+- se o provedor redireciona para um IPv4, o proxy busca `IP.sslip.io` em vez do IP literal:
+  o Workers recusa IP literal com `1003` e o hostname resolve para o mesmo servidor. Só IPs
+  já presentes em `MEDIA_PROXY_HOSTS` passam por esse alias;
 - só atende usuários autenticados e hosts da allowlist; não aceita `file:`, `data:`, credenciais
   na URL nem recursão;
 - MP4 e HLS usam o mesmo proxy; o player foi ajustado para passar mídia nativa também por ele;
