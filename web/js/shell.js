@@ -27,9 +27,17 @@
     { id: 'admin', label: 'Administração', adminOnly: true, make: function () { return App.screens.admin(); } }
   ];
 
+  /* Desktop: entradas próprias (ex.: Baixados) antes de Configurações.
+     A web e a TV não definem App.isDesktop/App.desktopMenu: o menu delas não muda. */
+  if (App.isDesktop && typeof App.desktopMenu === 'function') {
+    var extra = App.desktopMenu() || [];
+    for (var de = extra.length - 1; de >= 0; de--) MENU.splice(6, 0, extra[de]);
+  }
+
   /* Administração só entra no menu para quem tem app_metadata.role = "admin". */
   function menuEntries() {
     return MENU.filter(function (m) {
+      if (m.adminOnly && App.isDesktop) return false;   /* admin fica só na web */
       return !m.adminOnly || (App.session && App.session.isAdmin());
     });
   }
