@@ -15,6 +15,9 @@
   "vars": {
     // Lido por /api/auth/capabilities. Desligue quando nao houver SMTP configurado
     // disponível: sem SMTP, o link "Esqueci minha senha" não aparece e o reset é pelo admin.
-    "AUTH_RECOVERY_ENABLED": "false"
+    "AUTH_RECOVERY_ENABLED": "false",
+    // Proxy de midia same-origin (Functions). Lista de hosts exatos ou sufixos
+    // (ex.: "tech-cdn.top" cobre subdominios). Mantenha restrito ao provedor.
+    "MEDIA_PROXY_HOSTS": "tech-cdn.top"
   }
 }

@@ -344,8 +344,8 @@
     var ua = (g.navigator && g.navigator.userAgent) || '';
     return /safari/i.test(ua) && !/chrome|chromium|crios|fxios|edg|android|opr/i.test(ua);
   }
-  function mediaUrl(url, kind) {
-    if (kind.engine !== 'hls' && kind.engine !== 'mpegts') return url;
+  function mediaUrl(url) {
+    /* O proxy também cobre MP4/WebM nativos em página HTTPS (mixed content). */
     if (App.net && typeof App.net.mediaUrl === 'function') {
       try {
         var out = App.net.mediaUrl(url);
@@ -572,7 +572,7 @@
     cls('blocked', false);
     busy(true);
     var kind = kindOf(raw);
-    var url = mediaUrl(raw, kind);
+    var url = mediaUrl(raw);
     S.engineUrl = raw;
     S.playUrl = url;
     try { App.log('player: abrindo', App.redact ? App.redact(url) : url); } catch (e) { /* sem console */ }

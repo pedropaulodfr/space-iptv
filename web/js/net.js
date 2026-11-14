@@ -4,7 +4,8 @@
  *   App.net.init()        -> Promise<boolean> idempotente; nunca rejeita
  *   App.net.active()      -> bool (proxy disponivel e ligado)
  *   App.net.proxy(url)    -> /__proxy?url=... (apenas http:// e https://)
- *   App.net.mediaUrl(url) -> reescreve so .m3u8/.ts quando ativo; MP4 intacto
+ *   App.net.mediaUrl(url) -> reescreve qualquer mídia http(s) cross-origin quando ativo
+ *                            (inclusive MP4; o proxy das Pages Functions resolve mixed content)
  *   App.net.ready()       -> bool (atalho para a UI)
  *   App.net.reason()      -> motivo do estado ('idle'|'pending'|'ready'|...)
  *   App.net.friendly(err) -> App.friendly estendido (network/opaque/abort)
@@ -22,7 +23,7 @@
   var App = g.App = g.App || {};
   if (App.net && App.net.__webNet) return; /* ja carregado: nao envolve duas vezes */
 
-  var PING_PATH = '/__proxy/ping';
+  var PING_PATH = '/media-proxy/ping';
   var PING_TIMEOUT = 1500;
   var loc = (typeof g.location !== 'undefined' && g.location) ? g.location : null;
 
@@ -30,6 +31,7 @@
   var reason = 'idle';
   var initPromise = null;
   var wrapped = false;
+  var proxyHosts = [];
 
   var originalFriendly = (typeof App.friendly === 'function') ? App.friendly : null;
 
@@ -58,25 +60,32 @@
   /* URL same-origin do proxy; entrada nao-http(s) volta intacta. */
   function proxy(url) {
     if (!isHttpUrl(url)) return url;
-    return '/__proxy?url=' + encodeURIComponent(url);
+    return '/media-proxy?url=' + encodeURIComponent(url);
   }
 
-  function isMediaUrl(url) {
-    if (!isHttpUrl(url)) return false;
-    return /\.(m3u8|ts)$/i.test(pathnameOf(url));
+  /* Só reescreve hosts que a allowlist do proxy autoriza; o resto fica direto. */
+  function hostAllowed(hostname) {
+    var host = String(hostname || '').toLowerCase();
+    return proxyHosts.some(function (h) {
+      return h === '*' || host === h || host.slice(-(h.length + 1)) === '.' + h;
+    });
   }
 
-  /* get/stream/probe: so http(s) cross-origin precisa do proxy. */
+  /* get/stream/probe: so http(s) cross-origin e com host autorizado. */
   function shouldProxy(url) {
     if (!active || !isHttpUrl(url)) return false;
     var u = absUrl(url);
     if (!u) return false;
     if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
-    return !sameOrigin(u);
+    return !sameOrigin(u) && hostAllowed(u.hostname);
   }
 
+  /* O player só chama isto para mídia. Proxya qualquer http(s) cross-origin,
+     inclusive MP4: sem isso, um stream http:// quebra em página https. */
   function mediaUrl(url) {
-    if (!active || !isMediaUrl(url)) return url;
+    if (!active || !isHttpUrl(url)) return url;
+    var u = absUrl(url);
+    if (!u || sameOrigin(u) || !hostAllowed(u.hostname)) return url;
     return proxy(url);
   }
 
@@ -160,6 +169,7 @@
             if (xhr.status !== 200) return done(false, 'unavailable');
             var data = null;
             try { data = JSON.parse(xhr.responseText); } catch (e) { data = null; }
+            proxyHosts = data && Array.isArray(data.hosts) ? data.hosts : ['*'];
             done(!!(data && data.ok === true), data && data.ok === true ? 'ready' : 'unavailable');
           };
           xhr.onerror = function () { done(false, 'unavailable'); };

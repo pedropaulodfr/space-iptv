@@ -338,11 +338,29 @@ node web/server.js --proxy
 - Limites: playlist reescrita até 32 MiB; timeout de cabeçalhos 15 s; timeout ocioso 30 s; URL
   de até 8 KB. Ajustáveis por `PROXY_PLAYLIST_MAX`, `PROXY_HEADERS_TIMEOUT`,
   `PROXY_IDLE_TIMEOUT`.
-- No cliente (`web/js/net.js`), o proxy é detectado por `GET /__proxy/ping`. Se existir, passa a
-  valer para `App.http.get/stream/probe` e para URLs de mídia `.m3u8`/`.ts` (MP4 direto fica
-  intacto). O HUD mostra o badge **“proxy local”**. O ping responde **200 com `{ok:false}`**
-  quando o proxy está desligado — assim o console não fica cheio de 404.
+- No cliente (`web/js/net.js`), o proxy é detectado por `GET /media-proxy/ping`. Se existir, passa
+  a valer para `App.http.get/stream/probe` e para **toda mídia** http(s) cross-origin — inclusive
+  MP4/WebM, não só `.m3u8`/`.ts`. O HUD mostra o badge **“proxy local”**. O ping responde
+  **200 com `{ok:false}`** quando o proxy está desligado — assim o console não fica cheio de 404.
 - **Nunca é ativado por padrão** e **não existe em build estático**.
+
+### Proxy de mídia no Cloudflare Pages
+
+O deploy em Pages tem uma Function própria em `/media-proxy`, protegida por login e restrita
+ao(s) host(s) de `MEDIA_PROXY_HOSTS` (em `wrangler.jsonc`; padrão `tech-cdn.top`). Ela resolve
+o caso de **stream http:// em página https://** e de certificado autoassinado no provedor:
+
+- a Function busca a origem via `fetch` (HTTP é permitido no servidor), devolve os bytes por
+  HTTPS same-origin, repassa `Range` e reescreve playlists HLS (`URI`, `KEY`, `MAP`);
+- só atende usuários autenticados e hosts da allowlist; não aceita `file:`, `data:`, credenciais
+  na URL nem recursão;
+- MP4 e HLS usam o mesmo proxy; o player foi ajustado para passar mídia nativa também por ele;
+- **limites:** cada segmento HLS é uma requisição; o plano free do Cloudflare tem cota diária de
+  requisições. Para uso intenso, prefira MP4 ou um host com HTTPS/CORS válidos;
+- se a URL do provedor responder **404/403**, o proxy apenas repassa o erro — ele não revive uma
+  URL expirada. Atualize a lista no app.
+- o servidor local `web/server.js` mantém `/__proxy` (e aceita o alias `/media-proxy`) para
+  desenvolvimento; o runner local usa a mesma Function.
 
 ## Limitações conhecidas
 

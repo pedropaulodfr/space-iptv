@@ -15,5 +15,8 @@ AUTH_SECRET=
 # Não há SMTP: a recuperação é o reset pelo administrador.
 AUTH_RECOVERY_ENABLED=false
 
+# Proxy de mídia das Pages Functions: hosts exatos ou sufixos permitidos.
+MEDIA_PROXY_HOSTS=tech-cdn.top
+
 # Somente para migrações/administração manual (NÃO vai para o Pages).
 NEON_DATABASE_URL=postgresql://neondb_owner:TROQUE-ESTA-SENHA@<host>.neon.tech/neondb?sslmode=require

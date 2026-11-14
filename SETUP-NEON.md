@@ -25,6 +25,7 @@ nenhum.
 | `AUTH_SECRET` | assina o token de acesso (HMAC-SHA256), mínimo 32 caracteres | `.dev.vars` local; secret no Pages |
 | `NEON_DATABASE_URL` | conexão do **owner** (só migração/administração manual) | `.dev.vars` local (não vai para o Pages) |
 | `AUTH_RECOVERY_ENABLED` | `false` (não há SMTP; reset é pelo admin) | opcional |
+| `MEDIA_PROXY_HOSTS` | hosts/sufixos permitidos no `/media-proxy` (ex.: `tech-cdn.top`) | `wrangler.jsonc`/`.dev.vars` |
 
 `AUTH_SECRET` pode ser gerado com:
 

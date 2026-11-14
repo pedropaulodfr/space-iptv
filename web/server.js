@@ -587,7 +587,8 @@ function handlePing(req, res) {
     ok: true,
     proxy: 'local',
     version: VERSION,
-    playlistMaxBytes: PROXY_PLAYLIST_MAX
+    playlistMaxBytes: PROXY_PLAYLIST_MAX,
+    hosts: ['*']
   });
 }
 
@@ -606,8 +607,10 @@ async function handleRequest(req, res) {
   const raw = rawPathname(req.url);
   if (hasTraversal(raw)) return sendText(res, 400, 'Caminho inválido.');
 
-  if (u.pathname === '/__proxy/ping') return handlePing(req, res);
-  if (u.pathname === '/__proxy') return handleProxy(req, res, u);
+  /* /media-proxy é o nome usado no Cloudflare Pages (arquivos com "_" inicial
+     são reservados); mantemos /__proxy como alias do servidor local. */
+  if (u.pathname === '/__proxy/ping' || u.pathname === '/media-proxy/ping') return handlePing(req, res);
+  if (u.pathname === '/__proxy' || u.pathname === '/media-proxy') return handleProxy(req, res, u);
 
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     return sendText(res, 405, 'Método não permitido.', { Allow: 'GET, HEAD' });

@@ -37,7 +37,7 @@ export const CSP = [
   "frame-ancestors 'none'",
   "form-action 'self'",
   "script-src 'self' 'wasm-unsafe-eval'",
-  "style-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https: http:",
   "font-src 'self'",
   "connect-src 'self' blob: data: https: http:",
