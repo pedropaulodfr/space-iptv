@@ -114,8 +114,10 @@
     function activeId() { return (App.lists.active() || {}).id; }
 
     function rowText(l) {
-      var s = (l.type === 'm3u' ? 'M3U' : 'Xtream • ' + App.lists.hostOf(l)) + '  •  Atualizada: ' + App.fmtDate(l.updated);
-      return s;
+      var kind = l.type === 'm3u'
+        ? (l.source === 'file' ? 'M3U • arquivo: ' + (l.filename || 'local') : 'M3U')
+        : 'Xtream • ' + App.lists.hostOf(l);
+      return kind + '  •  Atualizada: ' + App.fmtDate(l.updated);
     }
 
     function load() { listV.setItems(App.lists.all(), true); }
@@ -141,7 +143,12 @@
       { label: '+  Adicionar Xtream Codes', run: function () { formXtream().then(function (r) { afterSave(r, true); }); } },
       { label: 'Usar esta lista', need: true, run: function (l) { activate(l, false).then(function () { if (el) load(); App.toast('Lista ativa: ' + l.name); }); } },
       { label: 'Atualizar agora', need: true, run: function (l) { App.toast('Atualizando...'); activate(l, true).then(function () { if (el) load(); }); } },
-      { label: 'Editar', need: true, run: function (l) { (l.type === 'm3u' ? formM3U(l) : formXtream(l)).then(function (r) { afterSave(r, false); }); } },
+      {
+        label: 'Editar', need: true, run: function (l) {
+          if (l.source === 'file' && App.upload) return App.upload.open({ record: l, onSaved: function (r) { afterSave(r, false); } });
+          (l.type === 'm3u' ? formM3U(l) : formXtream(l)).then(function (r) { afterSave(r, false); });
+        }
+      },
       {
         label: 'Excluir', need: true, danger: true, run: function (l) {
           App.ui.confirm({ title: 'Excluir lista', msg: 'Excluir "' + l.name + '"? Os favoritos e o histórico dela deixarão de aparecer.', yes: 'Excluir', danger: true }).then(function (ok) {
@@ -162,6 +169,14 @@
       },
       { label: '🔒  Controle parental', run: function () { parentalMenu(); } }
     ];
+
+    /* Upload de arquivo é uma extensão web (o módulo só existe em web/js/upload.js). */
+    if (App.upload && typeof App.upload.open === 'function') {
+      actions.splice(1, 0, {
+        label: '+  Adicionar lista por arquivo (.m3u/.m3u8)',
+        run: function () { App.upload.open({ onSaved: function (r) { afterSave(r, true); } }); }
+      });
+    }
 
     function updateStatus() {
       if (!statusEl) return;

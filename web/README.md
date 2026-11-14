@@ -72,6 +72,16 @@ $env:HOST_IP='127.0.0.1'; node tools/mock-streams.js
   player**. `HOST_IP=127.0.0.1` é necessário para as URLs saírem no endereço da sua máquina.
 - Xtream de teste: servidor `http://127.0.0.1:8080`, usuário `test`, senha `test`.
 
+## Listas por arquivo (.m3u/.m3u8)
+
+Além de M3U por URL e Xtream Codes, a versão web aceita **upload de arquivo local**:
+
+- Em **Configurações → + Adicionar lista por arquivo (.m3u/.m3u8)**;
+- o arquivo é lido no navegador e guardado no **IndexedDB** (não é enviado a servidor);
+- limite de **20 MB**, com preview de canais/filmes/séries e validação do parser;
+- a lista sobrevive a reload, pode ser renomeada/reaberta em **Editar** e excluída; excluir apaga o texto local;
+- o upload resolve apenas a origem da lista: os streams continuam sujeitos a **CORS** e **mixed content** (HTTPS × HTTP).
+
 ## Build estático
 
 ```powershell
