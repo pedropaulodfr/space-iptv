@@ -41,6 +41,12 @@ tools/agents-live/state/
 miniflare-email-store/
 probe-disk/
 
+# ---- Space IPTV Desktop ------------------------------------------------------
+desktop/node_modules/
+desktop/.cache/
+desktop/test/tmp/
+desktop/**/*.log
+
 # ---- Sistema / editor --------------------------------------------------------
 Thumbs.db
 desktop.ini

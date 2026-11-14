@@ -1,0 +1,30 @@
+{
+  "name": "space-iptv-desktop",
+  "productName": "Space IPTV",
+  "version": "1.0.0",
+  "description": "Space IPTV Desktop — reprodutor de listas IPTV para Windows (Electron + NSIS)",
+  "private": true,
+  "license": "UNLICENSED",
+  "author": {
+    "name": "Space IPTV"
+  },
+  "main": "src/main/main.js",
+  "scripts": {
+    "build:renderer": "node scripts/build-renderer.js",
+    "start": "node scripts/build-renderer.js && electron .",
+    "dev": "node scripts/build-renderer.js && electron . --dev",
+    "test": "node --test test/",
+    "test:unit": "node --test test/unit/",
+    "test:integration": "node --test test/integration/",
+    "pack": "node scripts/build-renderer.js && electron-builder --dir --win",
+    "dist": "node scripts/build-renderer.js && electron-builder --win nsis --x64",
+    "icons": "python scripts/make-icons.py"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
+  },
+  "devDependencies": {
+    "electron": "^45.3.2",
+    "electron-builder": "^26.18.0"
+  }
+}

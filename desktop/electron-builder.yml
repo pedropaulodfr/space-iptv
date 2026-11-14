@@ -1,0 +1,59 @@
+# Space IPTV Desktop — empacotamento (electron-builder)
+#
+# Windows x64, instalador NSIS per-user (sem UAC/administrador).
+# O renderer é montado por `scripts/build-renderer.js` em `dist/renderer` e
+# embarcado no asar; o processo principal o serve por HTTP em 127.0.0.1.
+appId: com.spaceiptv.desktop
+productName: Space IPTV
+copyright: "Space IPTV — reprodutor de listas fornecidas por você"
+artifactName: "SpaceIPTV-Setup-${version}.${ext}"
+
+directories:
+  output: ../dist/desktop
+  buildResources: build
+
+files:
+  - "package.json"
+  - "src/**/*"
+  - "dist/renderer/**/*"
+  - "!**/*.map"
+  - "!**/test/**/*"
+  - "!**/.cache/**/*"
+
+asar: true
+compression: normal
+removePackageScripts: true
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.ico
+  # Assinatura de código somente quando houver certificado (CSC_LINK/CSC_KEY_PASSWORD
+  # no ambiente). Sem certificado o build segue não assinado — ver desktop/README.md.
+  signAndEditExecutable: true
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Space IPTV
+  uninstallDisplayName: Space IPTV
+  include: installer/space-iptv.nsh
+  deleteAppDataOnUninstall: false
+  runAfterFinish: true
+  # GUID fixo para upgrades no mesmo lugar (per-user).
+  guid: 8f1e6a2c-5b47-4c19-9d3e-0a6b7c8d9e10
+
+# Auto-update preparado (electron-updater). Publicar exige token no ambiente;
+# o build não publica nada sozinho (sem GH_TOKEN, electron-builder apenas empacota).
+publish:
+  - provider: github
+    owner: pedropaulodfr
+    repo: space-iptv
+    releaseType: release
+electronUpdaterCompatibility: ">=2.16"
