@@ -37,6 +37,15 @@
 !define SPACE_REG_DOWNLOADS "DownloadsDir"
 !define SPACE_RUN_KEY "Software\Microsoft\Windows\CurrentVersion\Run"
 !define SPACE_DEFAULT_DOWNLOADS_DIR "$PROFILE\Videos\Space IPTV"
+; Preferências do instalador que SOBREVIVEM à desinstalação: na próxima
+; instalação/reinstalação as pastas anteriores voltam como padrão (sem perguntar
+; de novo) e o usuário só confirma. Também é gravada pelo app quando ele muda a
+; pasta de downloads em Configurações.
+!define SPACE_PREF_KEY "Software\Space IPTV Installer"
+!define SPACE_PREF_INSTALL "InstallDir"
+; Mesmo GUID de electron-builder.yml (nsis.guid) — usado para descobrir a pasta
+; da instalação anterior quando a preferência persistida ainda não existe.
+!define SPACE_UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\8f1e6a2c-5b47-4c19-9d3e-0a6b7c8d9e10"
 
 ; --- variáveis globais -------------------------------------------------------
 ; O NSIS do electron-builder compila com warnings tratados como erro: variável
@@ -51,6 +60,7 @@ Var spaceHaystack           ; texto onde procurar
 !ifndef BUILD_UNINSTALLER
   ; --- instalador ---
   Var spaceDownloadsDir     ; pasta escolhida/validada
+  Var spacePrevInstallDir   ; pasta da instalação anterior (detectada)
   Var spaceDlField          ; handle do campo de texto
   Var spaceDlBrowseButton   ; handle do botão "Procurar..."
   Var spaceDlErrorLabel     ; handle do rótulo de erro
@@ -82,22 +92,76 @@ Var spaceHaystack           ; texto onde procurar
   UninstPage custom un.spaceUnPageCreate un.spaceUnPageLeave
 !macroend
 
-; Inicialização do instalador: padrão = valor anterior do registro ou o padrão.
+; Inicialização do instalador: reaproveita as pastas da instalação anterior.
+; Ordem: preferência persistida do instalador -> registro do app -> padrão.
 !macro customInit
-  ReadRegStr $spaceDownloadsDir HKCU "${SPACE_REG_KEY}" "${SPACE_REG_DOWNLOADS}"
+  ; ---------- pasta de downloads ----------
+  ReadRegStr $spaceDownloadsDir HKCU "${SPACE_PREF_KEY}" "${SPACE_REG_DOWNLOADS}"
+  ${If} $spaceDownloadsDir == ""
+    ReadRegStr $spaceDownloadsDir HKCU "${SPACE_REG_KEY}" "${SPACE_REG_DOWNLOADS}"
+  ${EndIf}
   ${If} $spaceDownloadsDir == ""
     StrCpy $spaceDownloadsDir "${SPACE_DEFAULT_DOWNLOADS_DIR}"
   ${EndIf}
+
+  ; ---------- pasta de instalação anterior ----------
+  ; A preferência persistida vale mesmo que a pasta tenha sido removida no
+  ; desinstalador: numa reinstalação o usuário não precisa digitar de novo.
+  StrCpy $spacePrevInstallDir ""
+  ReadRegStr $spacePrevInstallDir HKCU "${SPACE_PREF_KEY}" "${SPACE_PREF_INSTALL}"
+  StrCmp $spacePrevInstallDir "" spaceInitFromUninstall
+    StrCpy $INSTDIR "$spacePrevInstallDir"
+    Goto spaceInitInstallDone
+
+  spaceInitFromUninstall:
+    ; instalações antigas (antes da 1.0.5) podem não ter a preferência: usa o
+    ; registro de desinstalação do Windows para achar a pasta e não perguntar de novo
+    ReadRegStr $spacePrevInstallDir HKCU "${SPACE_UNINSTALL_KEY}" "InstallLocation"
+    IfFileExists "$spacePrevInstallDir\Space IPTV.exe" 0 spaceInitFromUninstallString
+      StrCpy $INSTDIR "$spacePrevInstallDir"
+      Goto spaceInitInstallDone
+
+  spaceInitFromUninstallString:
+    ReadRegStr $R2 HKCU "${SPACE_UNINSTALL_KEY}" "UninstallString"
+    StrCmp $R2 "" spaceInitInstallDone
+    ; remove aspas nas pontas (sem depender de ${UnQuote}, que não está disponível aqui)
+    StrCpy $R1 $R2 1
+    StrCmp $R1 '"' 0 spaceInitScan
+      StrCpy $R2 $R2 "" 1
+      StrLen $R0 $R2
+      IntOp $R0 $R0 - 1
+      StrCpy $R2 $R2 $R0
+    ; pega o diretório-pai: tudo antes da última "\"
+    spaceInitScan:
+      StrCpy $R1 ""
+      StrCpy $R0 0
+    spaceInitScanLoop:
+      StrCpy $R3 $R2 1 $R0
+      StrCmp $R3 "" spaceInitScanDone
+      StrCmp $R3 "\" 0 spaceInitScanNext
+        StrCpy $R1 $R2 $R0
+      spaceInitScanNext:
+      IntOp $R0 $R0 + 1
+      Goto spaceInitScanLoop
+    spaceInitScanDone:
+      IfFileExists "$R1\Space IPTV.exe" 0 spaceInitInstallDone
+        StrCpy $INSTDIR "$R1"
+
+  spaceInitInstallDone:
 !macroend
 
-; Instalação (inclusive silenciosa): persiste a pasta escolhida no registro.
+; Instalação (inclusive silenciosa): persiste as pastas no registro para a
+; próxima instalação e para o app.
 !macro customInstall
   ${If} $spaceDownloadsDir == ""
     StrCpy $spaceDownloadsDir "${SPACE_DEFAULT_DOWNLOADS_DIR}"
   ${EndIf}
   CreateDirectory "$spaceDownloadsDir"
   WriteRegStr HKCU "${SPACE_REG_KEY}" "${SPACE_REG_DOWNLOADS}" "$spaceDownloadsDir"
+  WriteRegStr HKCU "${SPACE_PREF_KEY}" "${SPACE_REG_DOWNLOADS}" "$spaceDownloadsDir"
+  WriteRegStr HKCU "${SPACE_PREF_KEY}" "${SPACE_PREF_INSTALL}" "$INSTDIR"
   DetailPrint "Pasta de downloads: $spaceDownloadsDir"
+  DetailPrint "Pasta de instalação: $INSTDIR"
 !macroend
 
 ; Inicialização do desinstalador: padrão seguro = não apagar downloads.
@@ -286,7 +350,10 @@ Var spaceHaystack           ; texto onde procurar
       !insertmacro MUI_HEADER_TEXT "Desinstalar Space IPTV" \
         "Confirme o que deve ser removido desta máquina."
 
-      ReadRegStr $spaceUnDlDir HKCU "${SPACE_REG_KEY}" "${SPACE_REG_DOWNLOADS}"
+      ReadRegStr $spaceUnDlDir HKCU "${SPACE_PREF_KEY}" "${SPACE_REG_DOWNLOADS}"
+      ${If} $spaceUnDlDir == ""
+        ReadRegStr $spaceUnDlDir HKCU "${SPACE_REG_KEY}" "${SPACE_REG_DOWNLOADS}"
+      ${EndIf}
 
       nsDialogs::Create 1018
       Pop $0
@@ -411,7 +478,10 @@ Var spaceHaystack           ; texto onde procurar
     ; Nunca apaga raiz de unidade, perfil, Windows, Program Files, AppData ou
     ; a própria pasta de instalação — e nada fora do caminho registrado.
     Function un.spaceUnRemoveDownloads
-      ReadRegStr $spaceUnDlDir HKCU "${SPACE_REG_KEY}" "${SPACE_REG_DOWNLOADS}"
+      ReadRegStr $spaceUnDlDir HKCU "${SPACE_PREF_KEY}" "${SPACE_REG_DOWNLOADS}"
+      ${If} $spaceUnDlDir == ""
+        ReadRegStr $spaceUnDlDir HKCU "${SPACE_REG_KEY}" "${SPACE_REG_DOWNLOADS}"
+      ${EndIf}
       StrCmp $spaceUnDlDir "" spaceUnDelDone
 
       ; Comprimento mínimo: recusa "" / "C:" / "C:\"

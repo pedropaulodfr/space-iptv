@@ -273,6 +273,24 @@ function repairMangledDownloadsDir(target) {
   }
 }
 
+/* Grava a pasta escolhida também na preferência persistente do instalador
+ * (HKCU\Software\Space IPTV Installer), para o setup já abrir com a mesma pasta
+ * numa reinstalação/atualização. Best-effort: nunca falha o app por isso. */
+function writeInstallerDownloadPref(dir) {
+  if (process.platform !== 'win32') return false;
+  const value = String(dir == null ? '' : dir).trim();
+  if (!value) return false;
+  try {
+    execFileSync('reg', [
+      'add', 'HKCU\\Software\\Space IPTV Installer',
+      '/v', 'DownloadsDir', '/t', 'REG_SZ', '/d', value, '/f'
+    ], { stdio: 'ignore', windowsHide: true, timeout: 3000 });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 /* Lê um valor REG_SZ do registro preservando Unicode.
  * `reg query` em pt-BR devolve bytes na página OEM/ANSI, o que corrompia "í";
  * `reg export` grava UTF-16LE, então lemos o arquivo e decodificamos certo. */
@@ -501,6 +519,8 @@ function createConfig(opts) {
       if (!check.ok) throw configError('invalid_dir', check.error);
       next.downloadsDir = dir;
       downloadsCache = { path: dir, from: 'config', freeBytes: check.freeBytes != null ? check.freeBytes : null };
+      /* o instalador lembra a pasta em updates/reinstalações */
+      writeInstallerDownloadPref(dir);
     }
     if (Object.prototype.hasOwnProperty.call(patch, 'epgTtlHours')) {
       const ttl = Number(patch.epgTtlHours);
@@ -649,6 +669,7 @@ module.exports = {
   sanitize: sanitize,
   checkWritableDir: checkWritableDir,
   readRegistryDownloadsDir: readRegistryDownloadsDir,
+  writeInstallerDownloadPref: writeInstallerDownloadPref,
   repairMangledDownloadsDir: repairMangledDownloadsDir,
   mangledPathOf: mangledPathOf,
   defaultDownloadsDir: defaultDownloadsDir,
