@@ -162,6 +162,11 @@ class Cdp {
       }
       if (msg.method) this.events.push(msg);
     });
+    this.ws.addEventListener('close', () => {
+      this.closed = true;
+      for (const { reject } of this.pending.values()) reject(new Error('CDP fechou (renderer/app saiu)'));
+      this.pending.clear();
+    });
   }
 
   send(method, params) {
@@ -206,8 +211,8 @@ class Cdp {
     return file;
   }
 
-  async mouseMove(x, y) {
-    await this.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: Math.round(x), y: Math.round(y), button: 'none', buttons: 0 });
+  async mouseMove(x, y, buttons) {
+    await this.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: Math.round(x), y: Math.round(y), button: 'none', buttons: buttons == null ? 0 : buttons });
   }
 
   async mouseWheel(x, y, deltaY) {
@@ -215,6 +220,14 @@ class Cdp {
       type: 'mouseWheel', x: Math.round(x), y: Math.round(y),
       deltaX: 0, deltaY: Math.round(deltaY || 0), button: 'none', buttons: 0
     });
+  }
+
+  async mouseDown(x, y) {
+    await this.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: Math.round(x), y: Math.round(y), button: 'left', buttons: 1, clickCount: 1 });
+  }
+
+  async mouseUp(x, y) {
+    await this.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: Math.round(x), y: Math.round(y), button: 'left', buttons: 0, clickCount: 1 });
   }
 
   consoleErrors() {
@@ -305,8 +318,14 @@ async function main() {
   fs.mkdirSync(TMP, { recursive: true });
 
   const results = [];
+  const progressFile = path.join(TMP, 'e2e-progress.log');
+  try { fs.writeFileSync(progressFile, ''); } catch (e) { /* ignore */ }
+  const progress = (label) => {
+    try { fs.appendFileSync(progressFile, new Date().toISOString() + ' ' + label + '\n'); } catch (e) { /* ignore */ }
+  };
   const record = (ok, label, detail) => {
     results.push({ ok, label, detail: detail || '' });
+    progress((ok ? 'PASS ' : 'FAIL ') + label + (detail ? ' — ' + detail : ''));
     console.log((ok ? 'PASS ' : 'FAIL ') + label + (detail ? ' — ' + detail : ''));
     return ok;
   };
@@ -378,6 +397,7 @@ async function main() {
     await cdp.send('Page.enable');
     await cdp.send('Log.enable');
     record(true, 'electron conectado por CDP', 'target=' + page.url);
+    progress('cdp conectado');
 
     /* registra o host do mock ANTES do App.net.init (ping do proxy) para o
        renderer já tratar o provedor como host proxiable (sem CORS na UI) */
@@ -457,8 +477,9 @@ async function main() {
       '    hintsBottom: hints.bottom, stageH: document.getElementById("stage").getBoundingClientRect().height };' +
       '})()');
     record(layout.fillClass === true && layout.fit && layout.fit.fill === true, 'palco em modo preencher (sem faixas laterais)', JSON.stringify({ iw: layout.iw, ih: layout.ih, fit: layout.fit }));
-    record(layout.hudLeft < 80 && layout.hudRight > layout.iw - 80, 'HUD preenche a largura da janela (só margem de projeto)', JSON.stringify({ hudLeft: Math.round(layout.hudLeft), hudRight: Math.round(layout.hudRight), iw: layout.iw }));
-    record(layout.hintsBottom <= layout.ih + 1 && layout.hintsBottom > layout.ih - 60, 'rodapé (hints) dentro da janela', JSON.stringify({ hintsBottom: Math.round(layout.hintsBottom), ih: layout.ih }));
+    record(layout.hudLeft <= 16 && layout.hudTop <= 16 && layout.hudRight >= layout.iw - 20,
+      'layout compacto: HUD encostado nas bordas (margem ~8px de projeto)', JSON.stringify({ hudLeft: Math.round(layout.hudLeft), hudTop: Math.round(layout.hudTop), hudRight: Math.round(layout.hudRight), iw: layout.iw }));
+    record(layout.hintsBottom <= layout.ih + 1 && layout.hintsBottom > layout.ih - 40, 'rodapé (hints) colado no fim da janela', JSON.stringify({ hintsBottom: Math.round(layout.hintsBottom), ih: layout.ih }));
 
     /* espera o boot do shell terminar; a conta de teste pode ter listas
        sincronizadas de execuções anteriores (sync push) — remove todas antes
@@ -526,6 +547,7 @@ async function main() {
     await shot('06-favoritos');
 
     /* ---------- scroll: hover não pode rolar a grade sozinho ---------- */
+    progress('scroll: inicio');
     await cdp.eval('(async function () {' +
       '  var d = App.catalog.data;' +
       '  if (d.movie.length < 60) {' +
@@ -560,6 +582,35 @@ async function main() {
       await sleep(500);
       const afterWheel = await cdp.eval('(document.querySelector("#screen .content .vlist") || document.querySelector("#screen .vlist")).scrollTop');
       record(afterWheel > gridRect.scrollTop, 'roda do mouse navega/rola a grade', JSON.stringify({ antes: gridRect.scrollTop, depois: afterWheel }));
+
+      /* barra de rolagem própria (arrastar o polegar) */
+      const sb = await cdp.eval('(function () {' +
+        '  var v = document.querySelector("#screen .content .vlist") || document.querySelector("#screen .vlist");' +
+        '  if (!v || !v.parentElement) return null;' +
+        '  var b = v.parentElement.querySelector(".vl-scroll"); var t = b && b.querySelector(".vl-scrollthumb");' +
+        '  if (!b || !t) return null;' +
+        '  var br = b.getBoundingClientRect(), tr = t.getBoundingClientRect();' +
+        '  var c = v.closest(".content") || v.parentElement; var cr = c.getBoundingClientRect();' +
+        '  return { on: b.classList.contains("on"), scrollTop: v.scrollTop, scrollHeight: v.scrollHeight, clientHeight: v.clientHeight,' +
+        '    barRight: br.right, contentRight: cr.right, contentLeft: cr.left,' +
+        '    bar: { x: br.left + br.width / 2, y: br.top, height: br.height }, thumb: { x: tr.left + tr.width / 2, y: tr.top, h: tr.height } };' +
+        '})()');
+      record(!!(sb && sb.on), 'barra de rolagem visível na grade de vídeos', JSON.stringify(sb && { on: sb.on, scrollHeight: sb.scrollHeight, clientHeight: sb.clientHeight }));
+      record(!!(sb && sb.barRight <= sb.contentRight + 2 && sb.barRight > sb.contentRight - 30), 'barra de rolagem encostada à direita da grade', JSON.stringify(sb && { barRight: Math.round(sb.barRight), contentRight: Math.round(sb.contentRight) }));
+      if (sb && sb.on) {
+        const startY = sb.thumb.y + Math.min(12, sb.thumb.h / 2);
+        await cdp.mouseDown(sb.thumb.x, startY);
+        await cdp.mouseMove(sb.thumb.x, startY + Math.round(sb.bar.height * 0.35), 1);
+        await sleep(150);
+        await cdp.mouseMove(sb.thumb.x, startY + Math.round(sb.bar.height * 0.6), 1);
+        await sleep(150);
+        await cdp.mouseUp(sb.thumb.x, startY + Math.round(sb.bar.height * 0.6));
+        await sleep(500);
+        const afterDrag = await cdp.eval('(document.querySelector("#screen .content .vlist") || document.querySelector("#screen .vlist")).scrollTop');
+        record(afterDrag !== afterWheel, 'arrastar a barra de rolagem move a grade', JSON.stringify({ antes: afterWheel, depois: afterDrag }));
+        await shot('16-barra-rolagem-filmes');
+        progress('scroll: fim');
+      }
     } else {
       record(true, 'scroll: grade pequena demais para testar (skip)', JSON.stringify(gridRect && { sh: gridRect.scrollHeight, ch: gridRect.clientHeight }));
     }
@@ -604,6 +655,7 @@ async function main() {
 
     /* Baixados + download + reprodução offline */
     const downloadsReady = await cdp.eval('!!(window.App && App.downloads && App.screens && App.screens.downloads)');
+    progress('downloads: inicio');
     if (!SKIP_DOWNLOADS && downloadsReady && media) {
       /* --- cenário principal: MP4 real decodificável + HLS empacotado --- */
       await cdp.eval('(async function () {' +
@@ -708,6 +760,7 @@ async function main() {
         } finally {
           const back = await wifiReconnect(wifi.ssid);
           record(back, 'Wi-Fi reconectado após a prova offline', wifi.ssid);
+          progress('offline: fim');
         }
       }
 
@@ -812,6 +865,7 @@ async function main() {
       'shell após reload'
     );
     const noEpgList = '#EXTM3U\n#EXTINF:-1 tvg-id="SBT.br" group-title="Canais",SBT HD\nhttp://127.0.0.1:9/live.ts\n';
+    progress('epg default: inicio');
     const defEpg = await cdp.eval('(async function () {' +
       '  var text = ' + JSON.stringify(noEpgList) + ';' +
       '  var list = await App.lists.saveFile({ name: "Lista sem EPG", filename: "sem-epg.m3u", size: text.length, text: text });' +

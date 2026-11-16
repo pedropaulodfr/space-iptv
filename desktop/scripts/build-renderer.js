@@ -38,6 +38,7 @@ const REQUIRED = [
   'web/vendor/mpegts.min.js',
   'css/downloads.css',
   'js/downloads.js',
+  'js/scrollbar.js',
   'css/epg.css',
   'js/epg/epg-parse.js',
   'js/epg/epg.js',
