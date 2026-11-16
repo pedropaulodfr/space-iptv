@@ -8,7 +8,7 @@ Electron **40.6.0** (o 45.x crasha nesta build do Windows — ver Observações 
 
 ## 1. Suíte automatizada (`cd desktop; npm test`)
 
-**Resultado: 175/175 testes verdes** (`node --test "test/**/*.test.js"`, 0 falhas).
+**Resultado: 181/181 testes verdes** (`node --test "test/**/*.test.js"`, 0 falhas).
 
 | Arquivo | Cobre |
 |---|---|
@@ -19,6 +19,7 @@ Electron **40.6.0** (o 45.x crasha nesta build do Windows — ver Observações 
 | `test/unit/autostart.test.js` | login item per-user, padrão desligado, remoção ao desativar, `SPACE_NO_AUTOSTART` |
 | `test/unit/epg-parse.test.js` | XMLTV incremental: gzip, fusos (+0000/-0330/+0200), CDATA/entidades, dedupe, truncado, vazio/inválido |
 | `test/unit/epg-default.test.js` | fonte pública de EPG padrão no config, validação de URL, precedência M3U/Xtream/padrão/desligado, credenciais fora do estado/cache, allowlist |
+| `test/unit/downloads-dir-repair.test.js` | leitura do registro preservando acentos, rejeição de caminho com U+FFFD, reparo/merge da pasta antiga corrompida (`V\uFFFDdeos` → `Vídeos`) |
 | `test/integration/server.test.js` | servidor interno: `/api/admin/*` **403 sem tocar no upstream**, reescrita Origin/Referer/Host, Cookie repassado, Set-Cookie sem Domain/Secure, 401/403/502/timeout, Host inválido 400, traversal, `/_hosts`, `/_epg/source`, `/media-proxy` |
 | `test/integration/media-epg.test.js` | EPG fim a ponta (`/_epg/source` gzip → parser → cache/TTL), MP4 idêntico e Range/206 |
 
@@ -92,13 +93,13 @@ cd desktop; npm run audit:playwright
 # gera desktop/docs/PLAYWRIGHT-AUDIT.md + capturas dist/desktop-shots/pw-*.png
 ```
 
-**Resultado: 22/22 PASS** (Playwright via `_electron`, sem baixar navegador — usa o
+**Resultado: 23/23 PASS** (Playwright via `_electron`, sem baixar navegador — usa o
 Electron do app). Cobre, no app real e com login/lista mock:
 
 | Área | O que foi verificado | Resultado |
 |---|---|---|
 | visual | palco preenche a janela (fill), layout compacto (~8px), conteúdo até o fim, sem rolagem horizontal | PASS |
-| usabilidade | barra de rolagem visível (trilha+polegar), polegar ≥12×40 renderizados, z-index 45 acima dos cards, acessível com o mouse sobre o último cartão, clique na trilha e arrasto | PASS |
+| usabilidade | barra de rolagem visível (trilha+polegar), polegar ≥12×40 renderizados, z-index 45 acima dos cards, acessível com o mouse sobre o último cartão, clique na trilha e arrasto; **tela Baixados mostra os itens (sem skeleton eterno)** | PASS |
 | acessibilidade | alvos do HUD/menu ≥44px renderizados; contraste de texto ≥4.5:1 (amostras: 7,32:1 e 18,79:1); polegar com 7,32:1; `role="scrollbar"`+nome+`aria-valuenow/valuetext` na árvore de acessibilidade; barra focável (Tab) e operável por PageDown/Home; foco visível nas setas; `prefers-reduced-motion` desliga animações; botões do Guia ≥44px | PASS |
 
 Observações registradas no relatório: a barra é um controle próprio (não nativo),
@@ -107,6 +108,28 @@ toque, mas acessível por clique, arrasto, roda e teclado; os controles principa
 foram compensados para ≥44px renderizados por causa da escala do palco (~0,71).
 
 
+
+## 2.2 Correções da rodada 5 (pasta com nome corrompido + tela Baixados)
+
+Dois bugs reportados com download real:
+
+1. **Pasta "V\uFFFDdeos"**: a versão anterior lia `reg query` como UTF-8; no
+   Windows pt-BR o "í" virava U+FFFD e o app criava `D:\V\uFFFDdeos\Space IPTV`
+   em vez de usar `D:\Vídeos\Space IPTV` (do instalador). Correção: o registro é
+   lido via `reg export` (UTF-16LE) com fallback PowerShell UTF-8; caminhos com
+   U+FFFD são rejeitados; e no boot o app **move automaticamente** o conteúdo da
+   pasta corrompida para o caminho correto (rename ou merge, sem sobrescrever
+   arquivo existente) — coberto por 6 testes unitários e testado com a chave real
+   do registro (`D:\Vídeos\Space IPTV`, sem U+FFFD).
+2. **Tela Baixados em skeleton eterno**: a classe `is-loading` era alternada no
+   `#screen` em vez do `.dl-screen`; o CSS escondia a lista e mostrava o skeleton
+   mesmo depois de a lista carregar (contagens do HUD/chips apareciam). Correção:
+   a classe agora é aplicada no elemento da tela (`screenEl`), com timeout de 5 s
+   na carga e destravamento por eventos de progresso. Coberto no Playwright
+   (adiciona um download real, abre Baixados e exige linhas visíveis, sem
+   skeleton).
+
+## 3. Segurança / embalagem
 
 ```text
 node scripts/check-secrets.js --dist  -> OK, 90 arquivos de texto, 0 segredo/escopo indevido
@@ -122,7 +145,7 @@ node scripts/check-secrets.js --dist  -> OK, 90 arquivos de texto, 0 segredo/esc
 
 ```powershell
 cd desktop; npm run dist
-# -> dist/desktop/SpaceIPTV-Setup-1.0.0.exe
+# -> dist/desktop/SpaceIPTV-Setup-1.0.4.exe
 ```
 
 Instalação/desinstalação per-user (sem UAC) verificada nesta máquina com o
@@ -143,8 +166,8 @@ Estado anterior de testes (instalação antiga apontando para uma pasta temporá
 foi removido antes — o teste abaixo é de uma instalação **limpa** per-user:
 
 ```text
-instalador_sha256: 873168e477127e9d230e7391ee8524983ee5cd1de84e6a0cb2ac746990a2fbb8
-instalador_bytes: 104093322
+instalador_sha256: 1007ecb1aaf2796527a46723ffcb77e889ec614d6a6b35e3e45830d0c5d5ed6b
+instalador_bytes: 104095415
 
 === 0. estado limpo ===
 run_space_iptv: (ausente)   run_space_iptv_desktop: (ausente)
@@ -152,7 +175,7 @@ registry_app: ausente       uninstall_key: (ausente)
 
 === 1. instalacao silenciosa (/S) ===
 install_exit: 0
-display_name: Space IPTV     display_version: 1.0.3     publisher: Space IPTV
+display_name: Space IPTV     display_version: 1.0.4     publisher: Space IPTV
 install_dir: C:\Users\pedro\AppData\Local\Programs\Space IPTV   (per-user, sem admin)
 app_exe: True                app_asar: True
 shortcut_desktop: True       shortcut_startmenu: True
@@ -174,6 +197,16 @@ appdata_cache_apos: False         <- cache/config do app removido
 downloads_registro_apos: ausente
 ```
 
+### Nota sobre a 1.0.4
+
+O instalador NSIS (macros/GUID/páginas) **não mudou** desde a 1.0.3, cuja
+instalação e desinstalação per-user foram validadas ponta a ponta acima. Para a
+1.0.4 (correções de código de downloads), foi validado o pacote final:
+`dist/desktop/win-unpacked/Space IPTV.exe --smoke` → exit 0 + `SPACE_SERVER=...`,
+sem erros no stderr. A instalação foi feita por cima da instalação real do
+usuário apenas depois da entrega (o app estava aberto durante o desenvolvimento;
+para não desinstalá-lo no meio do processo, o ciclo completo de instalação não
+foi repetido nesta rodada).
 Observação: a **página "Pasta de downloads"** do instalador é a única parte que
 exige interação (escolher pasta); em instalação silenciosa o padrão é usado e o
 app lê o caminho do registro em `HKCU\Software\Space IPTV`. A escolha

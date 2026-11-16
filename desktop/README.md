@@ -81,7 +81,7 @@ O E2E usa o backend de teste local em `http://127.0.0.1:8789`
 ## Instalador (NSIS)
 
 ```powershell
-npm run dist         # -> ../dist/desktop/SpaceIPTV-Setup-1.0.2.exe
+npm run dist         # -> ../dist/desktop/SpaceIPTV-Setup-1.0.4.exe
 ```
 
 - Instalação **per-user** (sem UAC), NSIS com páginas: boas-vindas, destino,
@@ -106,6 +106,13 @@ npm run dist         # -> ../dist/desktop/SpaceIPTV-Setup-1.0.2.exe
 
 Trocar a pasta de downloads **não apaga** os arquivos antigos: o app só passa a
 gerenciar a pasta nova (a antiga continua no disco).
+
+> **Migração automática (1.0.4+):** se uma versão anterior criou uma pasta com o
+> nome corrompido (ex.: `D:\V\uFFFDdeos\Space IPTV`, "í" virando `�`), ao abrir o
+> app os arquivos são movidos automaticamente para o caminho correto do
+> instalador (`D:\Vídeos\Space IPTV`) e a pasta inválida é removida quando fica
+> vazia. A tela **Baixados** também foi corrigida: ela não fica mais presa em
+> skeleton enquanto o download está em andamento.
 
 ## Configuração pela interface
 
