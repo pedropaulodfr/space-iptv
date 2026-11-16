@@ -197,6 +197,17 @@ class Cdp {
     return file;
   }
 
+  async mouseMove(x, y) {
+    await this.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: Math.round(x), y: Math.round(y), button: 'none', buttons: 0 });
+  }
+
+  async mouseWheel(x, y, deltaY) {
+    await this.send('Input.dispatchMouseEvent', {
+      type: 'mouseWheel', x: Math.round(x), y: Math.round(y),
+      deltaX: 0, deltaY: Math.round(deltaY || 0), button: 'none', buttons: 0
+    });
+  }
+
   consoleErrors() {
     const out = [];
     for (const ev of this.events) {
@@ -425,6 +436,21 @@ async function main() {
     const hudUser = await cdp.eval('(document.getElementById("hud-user") || {}).textContent || ""');
     record(hudUser.indexOf(user.email.split('@')[0]) >= 0, 'HUD mostra o usuário', hudUser);
 
+    /* palco preenchendo a janela: sem faixas laterais (fill-stage) e HUD encostando
+       apenas na margem de projeto (48px * escala) */
+    const layout = await cdp.eval('(function () {' +
+      '  var iw = window.innerWidth, ih = window.innerHeight;' +
+      '  var hud = document.getElementById("hud").getBoundingClientRect();' +
+      '  var hints = document.getElementById("hints").getBoundingClientRect();' +
+      '  var fit = (window.App && App.stageFit) || null;' +
+      '  return { iw: iw, ih: ih, aspect: iw / ih, fillClass: document.documentElement.classList.contains("fill-stage"),' +
+      '    fit: fit, hudLeft: hud.left, hudRight: hud.right, hudTop: hud.top, hudBottom: hud.bottom,' +
+      '    hintsBottom: hints.bottom, stageH: document.getElementById("stage").getBoundingClientRect().height };' +
+      '})()');
+    record(layout.fillClass === true && layout.fit && layout.fit.fill === true, 'palco em modo preencher (sem faixas laterais)', JSON.stringify({ iw: layout.iw, ih: layout.ih, fit: layout.fit }));
+    record(layout.hudLeft < 80 && layout.hudRight > layout.iw - 80, 'HUD preenche a largura da janela (só margem de projeto)', JSON.stringify({ hudLeft: Math.round(layout.hudLeft), hudRight: Math.round(layout.hudRight), iw: layout.iw }));
+    record(layout.hintsBottom <= layout.ih + 1 && layout.hintsBottom > layout.ih - 60, 'rodapé (hints) dentro da janela', JSON.stringify({ hintsBottom: Math.round(layout.hintsBottom), ih: layout.ih }));
+
     /* espera o boot do shell terminar; a conta de teste pode ter listas
        sincronizadas de execuções anteriores (sync push) — remove todas antes
        de importar a lista mock determinística desta rodada. */
@@ -490,6 +516,46 @@ async function main() {
     await cdp.eval('(async function(){ App.shell.goto("favs"); await new Promise(function(r){setTimeout(r,700)}); return true; })()');
     await shot('06-favoritos');
 
+    /* ---------- scroll: hover não pode rolar a grade sozinho ---------- */
+    await cdp.eval('(async function () {' +
+      '  var d = App.catalog.data;' +
+      '  if (d.movie.length < 60) {' +
+      '    for (var i = 0; d.movie.length < 60; i++) {' +
+      '      var it = { id: "fake" + i, t: "movie", n: "Filme Fake " + (i + 1), ns: "filme fake " + (i + 1), c: "Filmes", l: "", u: "http://127.0.0.1:9/fake.mp4", y: "2026", d: 0 };' +
+      '      d.movie.push(it); d.map.movie[it.id] = it;' +
+      '      if (d.by.movie["Filmes"]) d.by.movie["Filmes"].push(it);' +
+      '    }' +
+      '    d.by.movie["*"] = d.movie;' +
+      '  }' +
+      '  return d.movie.length;' +
+      '})()');
+    await cdp.eval('(async function(){ App.shell.goto("movies"); await new Promise(function(r){setTimeout(r,900)}); return true; })()');
+    const gridRect = await cdp.eval('(function () {' +
+      '  var v = document.querySelector("#screen .content .vlist") || document.querySelector("#screen .vlist");' +
+      '  if (!v) return null; var r = v.getBoundingClientRect();' +
+      '  return { left: r.left, top: r.top, width: r.width, height: r.height, scrollTop: v.scrollTop, scrollHeight: v.scrollHeight, clientHeight: v.clientHeight };' +
+      '})()');
+    if (gridRect && gridRect.scrollHeight > gridRect.clientHeight + 40) {
+      const cx = gridRect.left + Math.min(gridRect.width / 2, 500);
+      const y0 = gridRect.top + 30;
+      const y1 = Math.min(gridRect.top + gridRect.height - 20, y0 + 520);
+      for (let i = 0; i <= 12; i++) {
+        await cdp.mouseMove(cx, y0 + ((y1 - y0) * i) / 12);
+        await sleep(80);
+      }
+      await sleep(400);
+      const afterHover = await cdp.eval('(document.querySelector("#screen .content .vlist") || document.querySelector("#screen .vlist")).scrollTop');
+      record(afterHover === gridRect.scrollTop, 'mover o mouse sobre a grade NÃO rola sozinho', JSON.stringify({ antes: gridRect.scrollTop, depois: afterHover }));
+      /* a roda do mouse continua rolando/navegando a grade */
+      for (let w = 0; w < 3; w++) { await cdp.mouseWheel(cx, y0 + 120, 240); await sleep(160); }
+      await sleep(500);
+      const afterWheel = await cdp.eval('(document.querySelector("#screen .content .vlist") || document.querySelector("#screen .vlist")).scrollTop');
+      record(afterWheel > gridRect.scrollTop, 'roda do mouse navega/rola a grade', JSON.stringify({ antes: gridRect.scrollTop, depois: afterWheel }));
+    } else {
+      record(true, 'scroll: grade pequena demais para testar (skip)', JSON.stringify(gridRect && { sh: gridRect.scrollHeight, ch: gridRect.clientHeight }));
+    }
+
+
     /* Guia (EPG) */
     const guide = await cdp.eval('(async function(){ if (!App.desktop || !App.desktop.guide) return {ok:false,error:"sem guide"}; App.desktop.guide.open(App.lists.active()); await new Promise(function(r){setTimeout(r,900)}); return {ok:true, open: App.desktop.guide.isOpen && App.desktop.guide.isOpen(), cells: document.querySelectorAll(".guide-prog, .guide-program, .guide-cell").length}; })()');
     await shot('07-guia-epg');
@@ -504,16 +570,22 @@ async function main() {
     const autostartDefault = await cdp.eval('space.autostart.get().then(function (s) { return s.openAtLogin === false; })');
     record(autostartDefault === true, 'iniciar com o Windows vem desligado por padrão');
 
-    /* liga/desliga o login item (per-user) e confere o registro do Windows */
-    const auto = await cdp.eval('(async function () {' +
-      '  var before = await space.autostart.get();' +
-      '  var on = await space.autostart.set({ openAtLogin: true });' +
-      '  var mid = await space.autostart.get();' +
-      '  var off = await space.autostart.set({ openAtLogin: false });' +
-      '  var after = await space.autostart.get();' +
-      '  return { before: before.openAtLogin, on: on && on.openAtLogin, mid: mid.openAtLogin, off: off && off.openAtLogin, after: after.openAtLogin };' +
-      '})()');
-    record(auto.before === false && auto.mid === true && auto.after === false, 'autostart liga/desliga (login item) e volta desligado', JSON.stringify(auto));
+    /* liga/desliga o login item (per-user) e confere o registro do Windows.
+       Em execuções sem --with-autostart o app roda com SPACE_NO_AUTOSTART=1
+       (não mexe no Windows): validamos só o padrão desligado. */
+    if (!WITH_AUTOSTART) {
+      record(autostartDefault === true, 'autostart desligado por padrão (toggle coberto com --with-autostart)');
+    } else {
+      const auto = await cdp.eval('(async function () {' +
+        '  var before = await space.autostart.get();' +
+        '  var on = await space.autostart.set({ openAtLogin: true });' +
+        '  var mid = await space.autostart.get();' +
+        '  var off = await space.autostart.set({ openAtLogin: false });' +
+        '  var after = await space.autostart.get();' +
+        '  return { before: before.openAtLogin, on: on && on.openAtLogin, mid: mid.openAtLogin, off: off && off.openAtLogin, after: after.openAtLogin };' +
+        '})()');
+      record(auto.before === false && auto.mid === true && auto.after === false, 'autostart liga/desliga (login item) e volta desligado', JSON.stringify(auto));
+    }
 
     await cdp.eval('(async function(){ if (App.upload && App.upload.open) App.upload.open({}); await new Promise(function(r){setTimeout(r,400)}); return true; })()');
     await shot('09-importar-lista');
