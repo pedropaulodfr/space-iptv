@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tv generator-info-name="Space IPTV fixtures">
+  <channel id="tz.one">
+    <display-name>Canal Fuso</display-name>
+  </channel>
+
+  <programme start="20261114120000 +0000" stop="20261114130000 +0000" channel="tz.one">
+    <title>UTC meio-dia</title>
+  </programme>
+  <programme start="20261114120000 +0530" stop="20261114130000 +0530" channel="tz.one">
+    <title>Índia</title>
+  </programme>
+  <programme start="20261114120000 -0300" stop="20261114130000 -0300" channel="tz.one">
+    <title>Brasília</title>
+  </programme>
+  <programme start="20261114160000" stop="20261114170000" channel="tz.one">
+    <title>Sem fuso</title>
+  </programme>
+  <programme start="20261114233000 -0300" stop="20261115003000 -0300" channel="tz.one">
+    <title>Virada</title>
+  </programme>
+  <programme start="20261114000000 +1400" stop="20261114010000 +1400" channel="tz.one">
+    <title>Kiritimati</title>
+  </programme>
+  <programme start="202611150830 +0000" stop="202611150930 +0000" channel="tz.one">
+    <title>Sem segundos</title>
+  </programme>
+</tv>

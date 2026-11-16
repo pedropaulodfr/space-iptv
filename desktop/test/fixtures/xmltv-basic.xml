@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tv SYSTEM "xmltv.dtd">
+<!-- fixture do parser EPG: canais duplicados, programas sobrepostos e duplicados,
+     entidades XML, CDATA, programa sem stop e programa com start invalido -->
+<tv generator-info-name="Space IPTV fixtures">
+  <channel id="globo.br">
+    <display-name>Globo</display-name>
+    <display-name>Globo HD</display-name>
+    <icon src="https://example.invalid/logo/globo.png"/>
+  </channel>
+  <channel id="sbt.br">
+    <display-name>SBT</display-name>
+  </channel>
+  <channel id="espn.br">
+    <display-name>ESPN</display-name>
+  </channel>
+  <channel id="band.br">
+    <display-name>Band</display-name>
+  </channel>
+  <channel id="globo.dup">
+    <display-name>Globo</display-name>
+  </channel>
+
+  <!-- Globo: primeiro programa do dia -->
+  <programme start="20261114180000 -0300" stop="20261114190000 -0300" channel="globo.br">
+    <title lang="pt">Jornal Nacional</title>
+    <desc lang="pt">Notícias &amp; entrevistas do dia.</desc>
+    <category lang="pt">Notícias</category>
+  </programme>
+  <!-- duplicado exato (mesmo canal + mesmo inicio): deve ser ignorado -->
+  <programme start="20261114180000 -0300" stop="20261114190000 -0300" channel="globo.br">
+    <title lang="pt">Jornal Nacional (duplicado)</title>
+  </programme>
+  <!-- mesmo instante UTC, offset +0000: 21:00Z == 18:00 -0300 -->
+  <programme start="20261114210000 +0000" stop="20261114220000 +0000" channel="globo.br">
+    <title lang="pt">Jornal Nacional (UTC)</title>
+  </programme>
+  <!-- sobreposto ao primeiro (comeca 21:30Z, antes do stop 22:00Z): e valido -->
+  <programme start="20261114183000 -0300" stop="20261114200000 -0300" channel="globo.br">
+    <title lang="pt">Novela das Nove</title>
+    <desc lang="pt">Capítulo especial com <![CDATA[clima & festa]]> na praia.</desc>
+    <category lang="pt">Novela</category>
+  </programme>
+  <!-- sem stop: o parser mantem start e stop vazio (a camada EPG completa depois) -->
+  <programme start="20261114200000 -0300" channel="globo.br">
+    <title lang="pt">Programa sem fim</title>
+  </programme>
+  <!-- madrugada do dia seguinte -->
+  <programme start="20261115010000 -0300" stop="20261115020000 -0300" channel="globo.br">
+    <title lang="pt">Madrugada</title>
+  </programme>
+
+  <programme start="20261114180000 -0300" stop="20261114193000 -0300" channel="sbt.br">
+    <title lang="pt">SBT Brasil</title>
+    <desc lang="pt">Telejornal &#233;tico da noite.</desc>
+  </programme>
+  <programme start="20261114193000 -0300" stop="20261114210000 -0300" channel="sbt.br">
+    <title lang="pt">Programa do Ratinho</title>
+    <desc lang="pt">Silvio &amp; cia &#x2014; auditório.</desc>
+    <category lang="pt">Variedades</category>
+  </programme>
+  <!-- sobreposto ao anterior -->
+  <programme start="20261114200000 -0300" stop="20261114220000 -0300" channel="sbt.br">
+    <title lang="pt"><![CDATA[A Praça é Nossa]]></title>
+  </programme>
+
+  <programme start="20261114150000 +0000" stop="20261114170000 +0000" channel="espn.br">
+    <title lang="pt">Futebol ao Vivo</title>
+    <desc lang="pt">Campeonato brasileiro.</desc>
+    <category lang="pt">Esportes</category>
+  </programme>
+  <programme start="20261114170000 +0000" stop="20261114190000 +0000" channel="espn.br">
+    <title lang="pt">ESPN News</title>
+  </programme>
+
+  <!-- mesmo nome normalizado (globo) + mesmo inicio: dedup por nome -->
+  <programme start="20261114180000 -0300" stop="20261114190000 -0300" channel="globo.dup">
+    <title lang="pt">Jornal Nacional (nome repetido)</title>
+  </programme>
+
+  <!-- entradas invalidas: devem ser ignoradas sem quebrar -->
+  <programme start="amanha" stop="depois" channel="globo.br">
+    <title>Start invalido</title>
+  </programme>
+  <programme start="20261114190000 -0300" stop="20261114200000 -0300">
+    <title>Sem canal</title>
+  </programme>
+</tv>

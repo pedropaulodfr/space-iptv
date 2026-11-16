@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tv generator-info-name="Space IPTV fixtures">
+  <channel id="epoca.br">
+    <display-name>Época</display-name>
+    <display-name>Epoca HD</display-name>
+  </channel>
+  <channel id="cultura.br">
+    <display-name>Cultura</display-name>
+  </channel>
+
+  <programme start="20261114100000 -0300" stop="20261114113000 -0300" channel="epoca.br">
+    <title>Programa Épico</title>
+    <desc>Ação, emoção e informação.</desc>
+    <category>Série</category>
+  </programme>
+  <programme start="20261114113000 -0300" stop="20261114130000 -0300" channel="epoca.br">
+    <title>Notícias do Campo</title>
+  </programme>
+  <programme start="20261114100000 -0300" stop="20261114120000 -0300" channel="cultura.br">
+    <title>Concerto</title>
+    <desc>Música clássica.</desc>
+  </programme>
+</tv>

@@ -1,0 +1,2 @@
+Isto nao e um XMLTV: nenhuma tag, nenhum canal, nenhum programa.
+O parser deve recusar com { code: 'invalid' } sem explodir.

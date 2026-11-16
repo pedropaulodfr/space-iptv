@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tv generator-info-name="Space IPTV fixtures gzip">
+  <channel id="gzip.one">
+    <display-name>Canal GZip</display-name>
+  </channel>
+  <channel id="gzip.two">
+    <display-name>Canal Dois</display-name>
+  </channel>
+  <programme start="20261114120000 -0300" stop="20261114140000 -0300" channel="gzip.one">
+    <title>Programa Gzip</title>
+    <desc>Conteúdo comprimido com gzip.</desc>
+  </programme>
+  <programme start="20261114140000 -0300" stop="20261114150000 -0300" channel="gzip.one">
+    <title>Depois do Gzip</title>
+  </programme>
+  <programme start="20261114120000 -0300" stop="20261114130000 -0300" channel="gzip.two">
+    <title>Outro Canal</title>
+  </programme>
+</tv>

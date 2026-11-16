@@ -1,0 +1,187 @@
+/* Space IPTV Desktop — EPG: cards "Agora/A seguir", barra da TV ao vivo e tela Guia.
+ * Apenas classes próprias (.epg-*, .guide-*); tokens de tv/css/design-system.css.
+ * Metas: contraste >= 4.5:1, alvos >= 44 px, foco visível, prefers-reduced-motion.
+ * Geometria alinhada com guide-screen.js: canal 300, cabeçalho 52, linha 72, coluna 180.
+ */
+
+/* ======================================================== cards: agora/a seguir */
+.chan .info{position:relative}
+.chan .epg-lines{height:32px;margin-top:4px;overflow:hidden}
+.epg-line{display:flex;align-items:baseline;gap:6px;height:16px;line-height:16px;font-size:12px;white-space:nowrap;overflow:hidden}
+.epg-line .epg-lbl{flex:none;font-weight:500;color:rgba(245,247,255,.85)}
+.epg-line .epg-txt{min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--softWhite)}
+.epg-line.epg-empty{visibility:hidden}
+.poster .psub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ======================================================== barra da TV ao vivo */
+.epg-live-screen .split{height:calc(100% - 64px)}
+.epg-live-bar{
+  display:flex;align-items:center;justify-content:flex-end;gap:12px;
+  height:64px;padding:0 4px;position:relative;z-index:5;
+}
+.epg-live-status{color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:auto}
+.epg-live-status.warn{color:var(--danger)}
+.epg-live-bar button{
+  font:500 15px/20px var(--font-body);color:var(--softWhite);cursor:pointer;
+  height:44px;min-width:44px;padding:0 18px;border-radius:12px;
+  background:var(--glassDark);border:1px solid var(--glassBorder);
+  transition:transform 200ms var(--ease-focus),border-color 200ms,box-shadow 200ms;
+}
+.epg-live-bar button:hover{border-color:var(--glassFocusBorder)}
+.epg-live-bar button:focus-visible{outline:2px solid var(--electricBlue);outline-offset:2px}
+.epg-live-bar button.primary{background:linear-gradient(135deg,rgba(66,133,255,.55),rgba(130,87,229,.55));font-weight:600}
+.epg-live-bar button:active{transform:scale(.97)}
+
+/* ======================================================== tela Guia: moldura */
+.guide-overlay{
+  --guide-chan:300px;--guide-head:52px;--guide-row:72px;--guide-line:rgba(255,255,255,.09);
+  --guide-block:rgba(66,133,255,.14);--guide-block-border:rgba(66,133,255,.34);
+}
+.guide-panel{
+  position:absolute;left:48px;top:48px;right:48px;bottom:48px;
+  display:flex;flex-direction:column;overflow:hidden;border-radius:24px;
+  background:rgba(5,7,17,.92);
+}
+.guide-head{
+  flex:none;display:flex;align-items:center;justify-content:space-between;gap:24px;
+  padding:18px 24px;border-bottom:1px solid var(--glassBorder);
+}
+.guide-title-box{min-width:0}
+.guide-title{margin:0}
+.guide-sub{margin-top:4px;font-size:14px;line-height:20px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.guide-actions{display:flex;align-items:center;gap:14px;flex:none}
+.guide-status{color:var(--muted);max-width:520px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.guide-panel button.btn,.guide-detail button.btn{
+  font:500 16px/20px var(--font-body);color:var(--softWhite);cursor:pointer;
+  height:48px;padding:0 24px;border-radius:14px;
+  background:var(--glassDark);border:1px solid var(--glassBorder);
+  transition:transform 200ms var(--ease-focus),border-color 200ms,box-shadow 200ms;
+}
+.guide-panel button.btn.primary{background:linear-gradient(135deg,rgba(66,133,255,.55),rgba(130,87,229,.55));font-weight:600}
+.guide-panel button.btn:hover{border-color:var(--glassFocusBorder)}
+.guide-panel button.btn:focus-visible,.guide-detail button.btn:focus-visible{outline:2px solid var(--electricBlue);outline-offset:2px}
+.guide-body{flex:1;min-height:0;position:relative;display:flex;flex-direction:column}
+.guide-hints{flex:none;padding:8px 24px;color:var(--muted);border-top:1px solid var(--glassBorder)}
+
+/* -------------------------------------------------------- estados vazios */
+.guide-empty{
+  position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;padding:48px;text-align:center;
+}
+.guide-empty.kind-loading{align-items:stretch;padding:0}
+.guide-empty-badge{
+  display:inline-flex;align-items:center;justify-content:center;min-width:72px;height:44px;padding:0 16px;
+  border-radius:999px;border:1px solid rgba(66,133,255,.5);color:var(--electricBlue);
+  font-family:var(--font-display);font-weight:700;font-size:18px;letter-spacing:.08em;
+  background:rgba(66,133,255,.12);
+}
+.guide-empty-title{margin:0;color:var(--softWhite)}
+.guide-empty-msg{max-width:760px;font-size:18px;line-height:28px;color:rgba(245,247,255,.86)}
+.guide-empty-note{max-width:760px}
+.guide-empty-actions{display:flex;gap:14px;margin-top:10px;flex-wrap:wrap;justify-content:center}
+
+/* ---------------------------------------------------------------- grade */
+.guide-grid{flex:1;min-height:0;display:flex}
+.guide-chancol{flex:none;width:var(--guide-chan);display:flex;flex-direction:column;background:rgba(5,7,17,.4);border-right:1px solid var(--glassBorder)}
+.guide-chanhead{
+  flex:none;display:flex;align-items:center;padding:0 18px;
+  font-size:13px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+  border-bottom:1px solid var(--glassBorder);background:rgba(5,7,17,.55);
+}
+.guide-chanbox{position:relative;flex:1;overflow:hidden}
+.guide-chan-inner{position:relative;will-change:transform}
+.guide-chan{
+  position:absolute;left:0;right:0;display:flex;align-items:center;gap:12px;
+  padding:0 14px;border-bottom:1px solid var(--guide-line);cursor:pointer;
+}
+.guide-chan.is-focus{background:rgba(66,133,255,.16);box-shadow:inset 3px 0 0 var(--electricBlue)}
+.guide-chan-logo{
+  position:relative;flex:none;width:48px;height:36px;border-radius:8px;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(5,7,17,.6);border:1px solid var(--glassBorder);
+  font-family:var(--font-display);font-weight:700;font-size:16px;color:rgba(245,247,255,.7);
+}
+.guide-chan-logo img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:contain;padding:3px}
+.guide-chan-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500}
+
+.guide-timearea{flex:1;min-width:0;display:flex;flex-direction:column}
+.guide-timehead{flex:none;position:relative;overflow:hidden;border-bottom:1px solid var(--glassBorder);background:rgba(5,7,17,.55)}
+.guide-time-track{position:relative;height:100%;will-change:transform}
+.guide-tick{position:absolute;top:0;height:100%;border-left:1px solid var(--guide-line)}
+.guide-tick-label{
+  position:absolute;left:10px;bottom:6px;
+  font-size:14px;font-weight:500;color:var(--muted);white-space:nowrap;
+}
+.guide-now-flag{
+  position:absolute;top:3px;transform:translateX(-50%);z-index:3;
+  padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.04em;
+  color:#050711;background:var(--danger);white-space:nowrap;
+}
+.guide-scroll{flex:1;min-height:0;overflow:auto;position:relative;outline:none}
+.guide-scroll:focus-visible{outline:2px solid var(--electricBlue);outline-offset:-2px}
+.guide-scroll.dragging{cursor:grabbing;user-select:none}
+.guide-scroll.dragging *{cursor:grabbing!important}
+.guide-inner{position:relative}
+.guide-now-line{
+  position:absolute;top:0;width:2px;background:var(--danger);z-index:6;pointer-events:none;
+  box-shadow:0 0 8px rgba(255,93,115,.8);
+}
+.guide-now-line::before{
+  content:"";position:absolute;left:-4px;top:0;width:10px;height:10px;border-radius:50%;
+  background:var(--danger);box-shadow:0 0 10px rgba(255,93,115,.9);
+}
+.guide-row{position:absolute;left:0;right:0;box-shadow:inset 0 -1px 0 var(--guide-line)}
+.guide-row.is-focus{background:rgba(66,133,255,.07)}
+.guide-row-empty{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--muted)}
+
+.guide-prog{
+  position:absolute;top:4px;height:calc(100% - 8px);
+  display:flex;flex-direction:column;justify-content:center;gap:1px;
+  padding:4px 10px;border-radius:10px;overflow:hidden;cursor:pointer;
+  background:var(--guide-block);border:1px solid var(--guide-block-border);
+  transition:background 160ms,border-color 160ms,transform 160ms;
+}
+.guide-prog:hover{background:rgba(66,133,255,.24);border-color:rgba(66,133,255,.55)}
+.guide-prog.focused{
+  z-index:3;background:linear-gradient(135deg,rgba(66,133,255,.55),rgba(130,87,229,.55));
+  border-color:var(--glassFocusBorder);box-shadow:var(--glow-blue);transform:scale(1.01);
+  outline:2px solid var(--electricBlue);outline-offset:-2px;
+}
+.guide-prog-title{font-size:14px;font-weight:500;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--softWhite)}
+.guide-prog-time{font-size:11px;line-height:14px;color:rgba(245,247,255,.72);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.guide-prog.focused .guide-prog-time{color:rgba(245,247,255,.9)}
+.guide-prog.is-cut::after{
+  content:"";position:absolute;right:0;top:0;bottom:0;width:3px;
+  background:repeating-linear-gradient(180deg,rgba(245,247,255,.5) 0 4px,transparent 4px 8px);
+}
+
+/* aviso: guia salvo fora da janela atual */
+.guide-banner{
+  flex:none;display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  padding:10px 20px;font-size:14px;line-height:20px;color:var(--softWhite);
+  background:rgba(255,209,102,.1);border-bottom:1px solid rgba(255,209,102,.4);
+}
+.guide-banner button{
+  font:500 14px/18px var(--font-body);color:var(--softWhite);cursor:pointer;
+  height:44px;padding:0 18px;border-radius:12px;background:var(--glassDark);border:1px solid var(--glassBorder);
+}
+.guide-banner button:focus-visible{outline:2px solid var(--electricBlue);outline-offset:2px}
+
+/* -------------------------------------------------------------- detalhe */
+.guide-detail{width:820px;max-height:80vh;padding:36px 40px;overflow:auto}
+.guide-detail-title{margin:0 0 10px}
+.guide-detail-meta{font-size:16px;line-height:24px;color:var(--muted);margin-bottom:14px}
+.guide-detail-cat{margin-bottom:16px}
+.guide-detail-desc{
+  font-size:18px;line-height:28px;color:rgba(245,247,255,.88);
+  white-space:pre-line;max-height:360px;overflow:auto;margin-bottom:8px;
+}
+.guide-detail .btns{display:flex;justify-content:flex-end;gap:14px;margin-top:22px}
+.guide-detail-overlay{background:rgba(5,7,17,.98)}
+
+/* ------------------------------------------------- acessibilidade/movimento */
+@media (prefers-reduced-motion: reduce){
+  .guide-overlay *,.guide-detail *,.epg-live-bar *,.epg-line *{
+    animation:none!important;transition:none!important;scroll-behavior:auto!important;
+  }
+}
