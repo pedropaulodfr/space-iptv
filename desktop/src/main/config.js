@@ -108,6 +108,9 @@ function sanitize(raw) {
   if (api) data.apiOrigin = api;
   data.internalPort = normalizePort(raw.internalPort);
   data.downloadsDir = typeof raw.downloadsDir === 'string' ? raw.downloadsDir.trim().slice(0, 1024) : '';
+  /* caminho com U+FFFD veio de decodificação errada de versões antigas:
+     descarta e resolve de novo (registro/padrão) em vez de usar pasta inválida */
+  if (hasReplacementChar(data.downloadsDir)) data.downloadsDir = '';
   const ttl = Number(raw.epgTtlHours);
   if (EPG_TTL_ALLOWED.indexOf(ttl) >= 0) data.epgTtlHours = ttl;
   /* Fonte de EPG padrão: '' desliga; URL válida substitui; valor inválido no
@@ -197,25 +200,126 @@ function defaultAppDataDir() {
   return path.join(home, 'AppData', 'Roaming');
 }
 
+/* ---------- pasta antiga com nome corrompido (mojibake) ----------
+ * Versões anteriores liam `reg query` como UTF-8; em Windows pt-BR o "í" virava
+ * U+FFFD e o app criava uma pasta "V\uFFFDdeos". Aqui reparamos: se existe a
+ * variante corrompida do caminho e o caminho correto está ausente/vazio, os
+ * arquivos são movidos para o caminho correto (uma vez, no boot).
+ * Só mexe em caminho com a variante exata trocando não-ASCII por U+FFFD. */
+function hasReplacementChar(value) {
+  return String(value == null ? '' : value).indexOf('\uFFFD') >= 0;
+}
+
+function mangledPathOf(target) {
+  const clean = String(target == null ? '' : target).trim();
+  if (!clean) return '';
+  const parts = clean.split(/([\\/]+)/);
+  let out = '';
+  for (const part of parts) {
+    if (/^[\\/]+$/.test(part)) out += part;
+    else out += part.replace(/[^\x00-\x7F]/g, '\uFFFD');
+  }
+  return out === clean ? '' : out;
+}
+
+function moveContentsInto(from, to) {
+  let entries = [];
+  try { entries = fs.readdirSync(from, { withFileTypes: true }); } catch (e) { return false; }
+  try { fs.mkdirSync(to, { recursive: true }); } catch (e) { return false; }
+  for (const entry of entries) {
+    const src = path.join(from, entry.name);
+    const dst = path.join(to, entry.name);
+    if (entry.isDirectory()) {
+      let dstExists = false;
+      try { dstExists = fs.statSync(dst).isDirectory(); } catch (e) { dstExists = false; }
+      if (!dstExists) {
+        try { fs.renameSync(src, dst); continue; } catch (e) { /* outro volume */ }
+      }
+      moveContentsInto(src, dst);
+      try { fs.rmdirSync(src); } catch (e) { /* não estava vazio */ }
+    } else if (!fs.existsSync(dst)) {
+      try { fs.renameSync(src, dst); } catch (e) { /* arquivo em uso: mantém */ }
+    }
+  }
+  try { fs.rmdirSync(from); } catch (e) { /* ainda tem conteúdo */ }
+  return true;
+}
+
+function repairMangledDownloadsDir(target) {
+  const clean = String(target == null ? '' : target).trim();
+  if (!clean || hasReplacementChar(clean)) return null;
+  const bad = mangledPathOf(clean);
+  if (!bad || bad === clean) return null;
+  try {
+    if (!fs.existsSync(bad)) return null;
+    try { fs.mkdirSync(path.dirname(clean), { recursive: true }); } catch (e) { /* ignore */ }
+    let mode = '';
+    if (!fs.existsSync(clean)) {
+      try { fs.renameSync(bad, clean); mode = 'rename'; } catch (e) { mode = ''; }
+    } else {
+      let empty = false;
+      try { empty = fs.readdirSync(clean).length === 0; } catch (e) { empty = false; }
+      if (empty) {
+        try { fs.rmdirSync(clean); fs.renameSync(bad, clean); mode = 'rename'; } catch (e) { mode = ''; }
+      }
+      if (!mode) { moveContentsInto(bad, clean); mode = 'merge'; }
+    }
+    if (!mode) return null;
+    /* remove a pasta-pai corrompida se ficou vazia (ex.: D:\V\uFFFDdeos) */
+    try { fs.rmdirSync(path.dirname(bad)); } catch (e) { /* ainda tem conteúdo */ }
+    return { moved: true, from: bad, to: clean, mode: mode };
+  } catch (e) {
+    return null;
+  }
+}
+
+/* Lê um valor REG_SZ do registro preservando Unicode.
+ * `reg query` em pt-BR devolve bytes na página OEM/ANSI, o que corrompia "í";
+ * `reg export` grava UTF-16LE, então lemos o arquivo e decodificamos certo. */
+function readRegistryValueUtf16(name) {
+  const tmp = path.join(os.tmpdir(), 'space-iptv-reg-' + process.pid + '-' + Date.now() + '.reg');
+  try {
+    execFileSync('reg', ['export', 'HKCU\\Software\\Space IPTV', tmp, '/y'], { stdio: 'ignore', windowsHide: true, timeout: 3000 });
+  } catch (e) {
+    /* key pode não existir (primeiro uso antes do instalador) ou export falhou */
+    try { fs.unlinkSync(tmp); } catch (e2) { /* ignore */ }
+    return '';
+  }
+  try {
+    const buf = fs.readFileSync(tmp);
+    let text;
+    if (buf.length >= 2 && buf[0] === 0xFF && buf[1] === 0xFE) text = buf.toString('utf16le').replace(/^\uFEFF/, '');
+    else if (buf.length >= 3 && buf[0] === 0xEF && buf[1] === 0xBB && buf[2] === 0xBF) text = buf.slice(3).toString('utf8');
+    else text = buf.toString('utf8');
+    const key = '"' + String(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"';
+    const re = new RegExp(key + '\\s*=\\s*"((?:[^"\\\\]|\\\\.)*)"');
+    const m = re.exec(text);
+    if (!m) return '';
+    return m[1].replace(/\\\\/g, '\\').replace(/\\"/g, '"').slice(0, 1024);
+  } catch (e) {
+    return '';
+  } finally {
+    try { fs.unlinkSync(tmp); } catch (e) { /* ignore */ }
+  }
+}
+
 /* `HKCU\Software\Space IPTV` valor `DownloadsDir` — gravado pelo instalador NSIS.
    Só no Windows; falha silenciosa em qualquer outro caso. */
 function readRegistryDownloadsDir() {
   if (process.platform !== 'win32') return '';
+  let value = readRegistryValueUtf16('DownloadsDir');
+  if (value) return value;
+  /* Fallback: PowerShell com saída UTF-8 (para ambientes onde `reg export` falha). */
   try {
-    const out = execFileSync('reg', ['query', 'HKCU\\Software\\Space IPTV', '/v', 'DownloadsDir'], {
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 2500,
-      /* stderr silencioso: o valor só existe depois que o instalador roda */
-      stdio: ['ignore', 'pipe', 'ignore']
+    const script = "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; " +
+      "try { [Console]::Out.Write((Get-ItemProperty -Path 'HKCU:\\Software\\Space IPTV' -Name DownloadsDir -ErrorAction Stop).DownloadsDir) } catch { }";
+    const out = execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', script], {
+      encoding: 'utf8', windowsHide: true, timeout: 4000
     });
-    const m = /DownloadsDir\s+REG_SZ\s+(.+)/i.exec(String(out));
-    if (!m) return '';
-    const value = m[1].trim().replace(/^"(.*)"$/, '$1').trim();
-    return value.slice(0, 1024);
-  } catch (e) {
-    return '';
-  }
+    value = String(out || '').trim();
+    if (value && !hasReplacementChar(value)) return value.slice(0, 1024);
+  } catch (e) { /* ignore */ }
+  return '';
 }
 
 function defaultDownloadsDir() {
@@ -229,6 +333,7 @@ function checkWritableDir(dir) {
   if (!target) return { ok: false, error: 'Informe uma pasta para os downloads.' };
   if (target.length > 1024) return { ok: false, error: 'O caminho da pasta é longo demais.' };
   if (/[\u0000-\u001f]/.test(target)) return { ok: false, error: 'O caminho da pasta tem caracteres inválidos.' };
+  if (hasReplacementChar(target)) return { ok: false, error: 'O caminho da pasta tem caracteres corrompidos. Escolha a pasta de novo.' };
   let stat = null;
   try { stat = fs.statSync(target); } catch (e) { stat = null; }
   if (stat && !stat.isDirectory()) return { ok: false, error: 'O caminho escolhido não é uma pasta.' };
@@ -336,17 +441,26 @@ function createConfig(opts) {
     ];
     let lastError = '';
     for (let i = 0; i < candidates.length; i++) {
-      const value = candidates[i].value;
+      let value = candidates[i].value;
       if (!value) continue;
+      /* repara pasta criada com nome corrompido por versões antigas
+         (ex.: D:\V\uFFFDdeos) ANTES de validar/criar a pasta nova */
+      let migrated = null;
+      try { migrated = repairMangledDownloadsDir(value); } catch (e) { migrated = null; }
+      if (migrated && migrated.to) value = migrated.to;
       const check = checkWritableDir(value);
       if (check.ok) {
-        downloadsCache = { path: value, from: candidates[i].from, freeBytes: check.freeBytes != null ? check.freeBytes : null };
+        downloadsCache = {
+          path: value, from: candidates[i].from,
+          freeBytes: check.freeBytes != null ? check.freeBytes : null,
+          migrated: migrated || null
+        };
         return downloadsCache;
       }
       lastError = check.error;
       if (candidates[i].from === 'default') break;
     }
-    downloadsCache = { path: candidates[candidates.length - 1].value, from: 'default', freeBytes: null, error: lastError };
+    downloadsCache = { path: candidates[candidates.length - 1].value, from: 'default', freeBytes: null, error: lastError, migrated: null };
     return downloadsCache;
   }
 
@@ -486,6 +600,9 @@ function createConfig(opts) {
     const port = effectiveInternalPort();
     const dir = resolveDownloadsDir();
     if (dir.error) warnings.push('Pasta de downloads: ' + dir.error);
+    if (dir.migrated) {
+      warnings.push('Downloads antigos foram movidos de "' + dir.migrated.from + '" para "' + dir.migrated.to + '".');
+    }
     return { configFile: configFile, port: port, downloads: dir, warnings: warnings };
   }
 
@@ -532,6 +649,8 @@ module.exports = {
   sanitize: sanitize,
   checkWritableDir: checkWritableDir,
   readRegistryDownloadsDir: readRegistryDownloadsDir,
+  repairMangledDownloadsDir: repairMangledDownloadsDir,
+  mangledPathOf: mangledPathOf,
   defaultDownloadsDir: defaultDownloadsDir,
   writeJsonAtomic: writeJsonAtomic,
   formatBytes: formatBytes

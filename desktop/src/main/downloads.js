@@ -1220,11 +1220,22 @@ async function openDownloadsFolder(st) {
 }
 
 async function listPublic(st) {
-  try { await st.ready; } catch (e) { /* loadState não rejeita, mas por garantia */ }
+  /* Nunca deixa o renderer em "Carregando downloads..." para sempre: se a
+     inicialização da pasta travar (I/O, caminho inválido), respondemos com o
+     que já está em memória e um aviso; a próxima chamada tenta de novo. */
+  var timedOut = false;
+  try {
+    var winner = await Promise.race([
+      Promise.resolve(st.ready).then(function () { return 'ready'; }),
+      new Promise(function (resolve) { var t = setTimeout(function () { resolve('timeout'); }, 3000); if (t && t.unref) t.unref(); })
+    ]);
+    timedOut = winner === 'timeout';
+  } catch (e) { /* loadState não rejeita, mas por garantia */ }
   const items = Array.from(st.items.values())
     .sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); })
     .map(publicItem);
-  return { items: items, stats: statsOf(st), error: st.initError || '' };
+  const error = st.initError || (timedOut ? 'A pasta de downloads demorou para responder. Tente "Atualizar".' : '');
+  return { items: items, stats: statsOf(st), error: error };
 }
 
 /* -------------------------------------------------------------------------- */

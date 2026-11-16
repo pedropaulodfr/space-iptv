@@ -425,6 +425,8 @@
     var filtered = [];
     var stats = {};
     var loading = true;
+  var screenEl = null;
+
     var errorMsg = '';
     var mounted = false;
     var offEvent = null;
@@ -505,9 +507,14 @@
       return 'Nenhum download neste filtro.';
     }
 
+    function syncLoading() {
+      if (!screenEl) return;
+      screenEl.classList[loading ? 'add' : 'remove']('is-loading');
+    }
+
     function paint() {
       if (!el) return;
-      el.classList[loading ? 'add' : 'remove']('is-loading');
+      syncLoading();
       paintSummary();
       counts();
       if (!vlist) return;
@@ -709,8 +716,31 @@
         return Promise.resolve(null);
       }
       loading = all.length === 0;
-      if (el) el.classList[loading ? 'add' : 'remove']('is-loading');
-      return Promise.resolve(api.list()).then(function (res) {
+      syncLoading();
+      var pending;
+      try {
+        pending = api.list();
+      } catch (e) {
+        loading = false;
+        errorMsg = 'Não foi possível carregar a lista de downloads.';
+        syncLoading();
+        paint();
+        return Promise.resolve(null);
+      }
+      /* se o processo principal não responder, sai do skeleton e mostra o que
+         os eventos já entregaram (evita tela "carregando" eterna) */
+      var settled = false;
+      var timer = setTimeout(function () {
+        if (settled || seq !== reloadSeq || !mounted) return;
+        settled = true;
+        loading = false;
+        syncLoading();
+        if (!all.length) errorMsg = 'A lista de downloads demorou para responder. Use "Atualizar".';
+        paint();
+      }, 5000);
+      return Promise.resolve(pending).then(function (res) {
+        if (timer) { clearTimeout(timer); timer = null; }
+        settled = true;
         if (seq !== reloadSeq || !mounted) return null;
         loading = false;
         errorMsg = (res && res.error) || '';
@@ -721,9 +751,12 @@
         paint();
         return res;
       }, function () {
+        if (timer) { clearTimeout(timer); timer = null; }
+        settled = true;
         if (seq !== reloadSeq || !mounted) return null;
         loading = false;
         errorMsg = 'Não foi possível carregar a lista de downloads.';
+        syncLoading();
         paint();
         return null;
       });
@@ -744,6 +777,16 @@
         if (!found) { all.unshift(rec); changedList = true; }
       }
       if (payload.stats) stats = payload.stats;
+      /* Eventos já trazem itens completos: se a primeira carga ainda está
+         pendente, destrava a tela e pinta com o que chegou (bug da tela vazia
+         enquanto o download está em andamento). */
+      if (loading) {
+        loading = false;
+        syncLoading();
+        applyFilters();
+        paint();
+        return;
+      }
       var before = filtered.map(function (x) { return x.id; }).join('|');
       applyFilters();
       var after = filtered.map(function (x) { return x.id; }).join('|');
@@ -767,6 +810,7 @@
     function build() {
       App.clear(el);
       var screen = App.el('div', 'dl-screen is-loading');
+      screenEl = screen;
       var head = App.el('div', 'dl-head');
       var top = App.el('div', 'dl-head-top');
       top.appendChild(App.el('h1', 'display', 'Baixados'));
@@ -885,6 +929,7 @@
         el = null; listRoot = null; searchField = null; searchInput = null;
         chips = null; chipNodes = []; actionsGroup = null; actionNodes = [];
         screenApi = null;
+        screenEl = null;
       },
       enter: function () {
         if (!vlist) return false;
