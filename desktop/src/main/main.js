@@ -290,7 +290,7 @@ async function createMainWindow() {
     show: false,
     backgroundColor: WINDOW_BG,
     title: 'Space IPTV',
-    autoHideMenuBar: false,
+    autoHideMenuBar: !IS_DEV,
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
       contextIsolation: true,

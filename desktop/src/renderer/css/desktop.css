@@ -50,6 +50,23 @@ body {
 }
 
 /* ---------------------------------------------------------------------
+   Palco preenchendo a janela (App.isDesktop + web/js/shell.js).
+   Em janelas mais largas que 16:9 o shell escala pela LARGURA e reduz a altura
+   de projeto (--stage-h) em vez de deixar faixas laterais/escuras. Aqui os
+   blocos que têm geometria fixa em 1080px acompanham essa altura.
+   --------------------------------------------------------------------- */
+html.fill-stage #shell { height: var(--stage-h, 1080px); }
+html.fill-stage #sidebar { height: calc(var(--stage-h, 1080px) - 136px - 100px); }
+html.fill-stage #screen { height: calc(var(--stage-h, 1080px) - 136px - 100px); }
+html.fill-stage #hints { top: calc(var(--stage-h, 1080px) - 76px); }
+html.fill-stage #overlays,
+html.fill-stage #player { height: var(--stage-h, 1080px); }
+html.fill-stage #player video { height: var(--stage-h, 1080px); }
+html.fill-stage .det-main { top: 72px; bottom: 72px; }
+html.fill-stage .det-poster { height: min(570px, calc(var(--stage-h, 1080px) - 144px)); }
+html.fill-stage .modal { max-height: calc(var(--stage-h, 1080px) - 80px); }
+
+/* ---------------------------------------------------------------------
    1. Cursor de desktop
    web/js/pointers.js esconde o cursor após 2,5 s (comportamento de TV).
    No desktop o cursor fica SEMPRE visível — desktop não é controle remoto.
