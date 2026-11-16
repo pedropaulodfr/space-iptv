@@ -81,7 +81,7 @@ O E2E usa o backend de teste local em `http://127.0.0.1:8789`
 ## Instalador (NSIS)
 
 ```powershell
-npm run dist         # -> ../dist/desktop/SpaceIPTV-Setup-1.0.6.exe
+npm run dist         # -> ../dist/desktop/SpaceIPTV-Setup-1.0.7.exe
 ```
 
 - **Reinstalação/atualização não pergunta as pastas de novo**: o instalador grava

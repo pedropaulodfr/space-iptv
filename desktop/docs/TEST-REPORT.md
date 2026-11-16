@@ -93,7 +93,7 @@ cd desktop; npm run audit:playwright
 # gera desktop/docs/PLAYWRIGHT-AUDIT.md + capturas dist/desktop-shots/pw-*.png
 ```
 
-**Resultado: 28/28 PASS** (Playwright via `_electron`, sem baixar navegador — usa o
+**Resultado: 29/29 PASS** (Playwright via `_electron`, sem baixar navegador — usa o
 Electron do app). Cobre, no app real e com login/lista mock:
 
 | Área | O que foi verificado | Resultado |
@@ -144,7 +144,13 @@ Dois bugs reportados com download real:
   da **janela nativa via IPC** (`space:window:toggle-fullscreen`, `win.setFullScreen`),
   com o ícone sincronizado e **Esc saindo da tela cheia sem fechar o vídeo**.
   Coberto no Playwright (janela `isFullScreen()` + rótulo do botão + Esc).
-- **Barras de rolagem** (1.0.6): grade com barra fina e bem visível (11,4px
+- **Hover na Home** (1.0.7): mover o mouse pelas faixas verticais não rola mais a
+  tela. A ponte de ponteiro usava `walkTo()` ao entrar numa faixa ainda não
+  focada, e na Home isso disparava `key('down')`/`scrollTo()` repetidamente
+  (mesmo sintoma que antes existia na grade de filmes/séries). Agora o hover só
+  atua na faixa que já está em foco; o Playwright verifica que o
+  `home-track` (transform) e o `scrollY` ficam parados ao passar o mouse por
+  todas as faixas visíveis.- **Barras de rolagem** (1.0.6): grade com barra fina e bem visível (11,4px
   renderizados, polegar 10px) e **categorias mais finas** (8,5px, polegar 6,4px).
   O clique na trilha agora considera a altura do polegar (posição correta ~35%);
   a ponte de ponteiro ignora o ponteiro sobre a barra (não foca o card embaixo) e
@@ -167,7 +173,7 @@ node scripts/check-secrets.js --dist  -> OK, 90 arquivos de texto, 0 segredo/esc
 
 ```powershell
 cd desktop; npm run dist
-# -> dist/desktop/SpaceIPTV-Setup-1.0.6.exe
+# -> dist/desktop/SpaceIPTV-Setup-1.0.7.exe
 ```
 
 Instalação/desinstalação per-user (sem UAC) verificada nesta máquina com o
@@ -188,8 +194,8 @@ Estado anterior de testes (instalação antiga apontando para uma pasta temporá
 foi removido antes — o teste abaixo é de uma instalação **limpa** per-user:
 
 ```text
-instalador_sha256: 5df5d79b20040ee2990da9ac2f1500a9de0fd9ebacc1eca121d5f69bb12c8988
-instalador_bytes: 104097253
+instalador_sha256: 455b5fdde6f281b333c09e553873345f984aa4823a8b6cb2149a4e4c2c0a446c
+instalador_bytes: 104097706
 
 === 0. estado limpo ===
 run_space_iptv: (ausente)   run_space_iptv_desktop: (ausente)
@@ -197,7 +203,7 @@ registry_app: ausente       uninstall_key: (ausente)
 
 === 1. instalacao silenciosa (/S) ===
 install_exit: 0
-display_name: Space IPTV     display_version: 1.0.6     publisher: Space IPTV
+display_name: Space IPTV     display_version: 1.0.7     publisher: Space IPTV
 install_dir: C:\Users\pedro\AppData\Local\Programs\Space IPTV   (per-user, sem admin)
 app_exe: True                app_asar: True
 shortcut_desktop: True       shortcut_startmenu: True
