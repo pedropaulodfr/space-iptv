@@ -242,6 +242,21 @@
     }
     return true;
   }
+
+  /* Simula o scrollTo da VList: se focar este item mudaria o scrollTop, o hover
+     NÃO deve focar (senão a grade rola sozinha ao passar o mouse). A roda e o
+     teclado continuam rolando normalmente. */
+  function focusWouldScroll(inst, idx) {
+    if (!inst || !inst.root || !inst.rowH) return false;
+    var row = Math.floor(idx / (inst.cols || 1));
+    var top = row * inst.rowH;
+    var vh = inst.root.clientHeight || 0;
+    var st = inst.root.scrollTop || 0;
+    var next = st;
+    if (top - inst.rowH < st) next = Math.max(0, top - inst.rowH);
+    else if (top + inst.rowH * 2 > st + vh) next = top + inst.rowH * 2 - vh;
+    return next !== st;
+  }
   function onHover(d) {
     if (!d) return;
     if (d.kind === 'menu') { shellCall('hoverMenu', d.idx); afterProgrammatic(); return; }
@@ -253,6 +268,7 @@
     }
     if (d.kind === 'vlist' || d.kind === 'hrow') {
       if (!hoverVisible(d)) { lastHoverEl = d.cell || d.card || lastHoverEl; return; }
+      if (d.kind === 'vlist' && focusWouldScroll(d.inst, d.idx)) { lastHoverEl = d.cell || lastHoverEl; return; }
       applyFocus(d);
       afterProgrammatic();
       return;

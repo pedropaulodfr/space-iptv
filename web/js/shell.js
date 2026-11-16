@@ -264,15 +264,15 @@
     if (!isFinite(s) || s <= 0) s = 1;
     App.stageFit = { scale: s, width: vw, height: vh, designHeight: designH, fill: fill };
     var root = document.documentElement;
+    root.classList.toggle('desktop', !!App.isDesktop);
+    root.style.setProperty('--stage-h', designH + 'px');
     if (fill) {
       stage.style.height = designH + 'px';
       stage.style.transform = 'translate(0px,0px) scale(' + s + ')';
-      root.style.setProperty('--stage-h', designH + 'px');
       root.classList.add('fill-stage');
     } else {
       stage.style.height = '';
       stage.style.transform = 'translate(' + ((vw - 1920 * s) / 2) + 'px,' + ((vh - 1080 * s) / 2) + 'px) scale(' + s + ')';
-      root.style.removeProperty('--stage-h');
       root.classList.remove('fill-stage');
     }
     if (warnEl) warnEl.hidden = !(vw < 1024 || vh < 576);

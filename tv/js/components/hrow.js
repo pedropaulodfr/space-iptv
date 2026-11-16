@@ -9,6 +9,7 @@
     this.el = App.el('section', 'hrow');
     this.el.appendChild(App.el('h2', 'h2', o.title));
     var view = App.el('div', 'hr-view'); this.track = App.el('div', 'hr-track');
+    this.view = view;
     var self = this;
     this.cards = this.items.map(function (it, i) {
       var w = App.el('div', 'hr-card'); w.style.width = o.cardW + 'px'; w.style.height = o.cardH + 'px';
@@ -33,7 +34,10 @@
   P.setIdx = function (i, force) {
     if (i === this.idx && !force) return;
     this.mark(false); this.idx = i;
-    var viewW = 1560, l = i * this.step, r = l + this.o.cardW + 24;
+    /* Largura visível medida no DOM (a TV usa 1560; o desktop pode usar a tela
+       inteira, então a conta de rolagem acompanha a largura real da faixa). */
+    var viewW = (this.view && this.view.clientWidth) || 1560;
+    var l = i * this.step, r = l + this.o.cardW + 24;
     if (l < this.off) this.off = l; else if (r > this.off + viewW - 24) this.off = r - viewW + 24;
     this.track.style.transform = 'translate3d(' + (-this.off) + 'px,0,0)';
     this.lazy(i);

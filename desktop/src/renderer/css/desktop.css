@@ -50,21 +50,71 @@ body {
 }
 
 /* ---------------------------------------------------------------------
-   Palco preenchendo a janela (App.isDesktop + web/js/shell.js).
-   Em janelas mais largas que 16:9 o shell escala pela LARGURA e reduz a altura
-   de projeto (--stage-h) em vez de deixar faixas laterais/escuras. Aqui os
-   blocos que têm geometria fixa em 1080px acompanham essa altura.
+   Layout compacto do desktop: usa quase toda a janela.
+   A TV tem margem de segurança de 48px (controle remoto/overscan); no desktop
+   isso virava "moldura" preta. Aqui a margem cai para 8px e a altura de projeto
+   acompanha a janela (--stage-h, calculada por web/js/shell.js).
    --------------------------------------------------------------------- */
-html.fill-stage #shell { height: var(--stage-h, 1080px); }
-html.fill-stage #sidebar { height: calc(var(--stage-h, 1080px) - 136px - 100px); }
-html.fill-stage #screen { height: calc(var(--stage-h, 1080px) - 136px - 100px); }
-html.fill-stage #hints { top: calc(var(--stage-h, 1080px) - 76px); }
-html.fill-stage #overlays,
-html.fill-stage #player { height: var(--stage-h, 1080px); }
-html.fill-stage #player video { height: var(--stage-h, 1080px); }
-html.fill-stage .det-main { top: 72px; bottom: 72px; }
-html.fill-stage .det-poster { height: min(570px, calc(var(--stage-h, 1080px) - 144px)); }
-html.fill-stage .modal { max-height: calc(var(--stage-h, 1080px) - 80px); }
+html.desktop { --safe: 16px; }
+
+html.desktop #shell { height: var(--stage-h, 1080px); }
+html.desktop #hud { left: 8px; top: 8px; width: calc(1920px - 16px); height: 64px; padding: 0 18px; }
+html.desktop #sidebar {
+  left: 8px; top: 80px; width: 236px;
+  height: calc(var(--stage-h, 1080px) - 116px);
+  padding: 14px 8px; gap: 6px;
+}
+html.desktop #screen {
+  left: 252px; top: 80px; width: 1660px;
+  height: calc(var(--stage-h, 1080px) - 116px);
+}
+html.desktop #hints {
+  left: 252px; top: calc(var(--stage-h, 1080px) - 36px);
+  width: 1660px; height: 28px;
+}
+html.desktop .nav-item { height: 56px; border-radius: 14px; }
+html.desktop .nav-item .ico { width: 24px; height: 24px; }
+
+/* mais espaço útil para o conteúdo (categorias/grade/configurações) */
+html.desktop .split { gap: 12px; }
+html.desktop .cats { width: 300px; position: relative; }
+html.desktop .settings .lists-pane { width: 620px; }
+html.desktop .hr-view { width: 100%; }
+
+/* overlays/player ocupam a altura de projeto, não os 1080 fixos */
+html.desktop #overlays,
+html.desktop #player { height: var(--stage-h, 1080px); }
+html.desktop #player video { height: var(--stage-h, 1080px); }
+html.desktop .det-main { top: 32px; bottom: 32px; left: 48px; right: 48px; }
+html.desktop .det-poster { height: min(570px, calc(var(--stage-h, 1080px) - 96px)); }
+html.desktop .modal { max-height: calc(var(--stage-h, 1080px) - 48px); }
+
+/* ---------------------------------------------------------------------
+   Barra de rolagem das listas/grade (desktop).
+   As listas são virtualizadas e navegadas por foco; esta barra dá a posição e
+   permite arrastar/clicar para rolar sem usar o teclado. O JS está em
+   js/scrollbar.js; aqui é só a aparência (tokens do design system).
+   --------------------------------------------------------------------- */
+.vl-scroll {
+  position: absolute; right: 3px; width: 12px; z-index: 8;
+  pointer-events: none; opacity: 0; transition: opacity 150ms;
+}
+.vl-scroll.on { opacity: 1; pointer-events: auto; }
+.vl-scrollthumb {
+  position: absolute; left: 1px; width: 8px; min-height: 32px; border-radius: 999px;
+  background: rgba(245, 247, 255, .30); border: 1px solid rgba(255, 255, 255, .28);
+  cursor: pointer; pointer-events: auto;
+  transition: background 150ms, border-color 150ms, box-shadow 150ms;
+}
+.vl-scrollthumb:hover,
+.vl-scroll.drag .vl-scrollthumb {
+  background: linear-gradient(180deg, var(--electricBlue), var(--cosmicPurple));
+  border-color: var(--glassFocusBorder);
+  box-shadow: var(--glow-blue);
+}
+@media (prefers-reduced-motion: reduce) {
+  .vl-scroll, .vl-scrollthumb { transition: none; }
+}
 
 /* ---------------------------------------------------------------------
    1. Cursor de desktop
