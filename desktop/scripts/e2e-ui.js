@@ -69,6 +69,15 @@ function lanIp() {
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
+/* Fecha servidores de teste sem deixar o E2E pendurado (server.close espera
+   conexões keep-alive abertas; o teste não pode travar por isso). */
+function closeBounded(promise, ms) {
+  return Promise.race([
+    Promise.resolve(promise).catch(() => {}),
+    sleep(ms || 4000)
+  ]);
+}
+
 function countFiles(dir) {
   let n = 0;
   try {
@@ -346,8 +355,8 @@ async function main() {
       if (!KEEP) {
         try { child.kill(); } catch (e) { /* ignore */ }
       }
-      if (media) { try { await media.close(); } catch (e) { /* ignore */ } }
-      try { await provider.provider.close(); } catch (e) { /* ignore */ }
+      if (media) { try { await closeBounded(media.close(), 4000); } catch (e) { /* ignore */ } }
+      try { await closeBounded(provider.provider.close(), 4000); } catch (e) { /* ignore */ }
     };
 
   try {
@@ -567,6 +576,8 @@ async function main() {
     await shot('08-configuracoes');
     const settingsDesktop = await cdp.eval('document.body.innerText.indexOf("Pasta de downloads") >= 0 && document.body.innerText.indexOf("Iniciar com o Windows") >= 0');
     record(settingsDesktop, 'Configurações tem pasta de downloads e iniciar com o Windows');
+    const epgSettings = await cdp.eval('document.body.innerText.indexOf("Fonte de EPG") >= 0');
+    record(epgSettings, 'Configurações tem a fonte de EPG padrão');
     const autostartDefault = await cdp.eval('space.autostart.get().then(function (s) { return s.openAtLogin === false; })');
     record(autostartDefault === true, 'iniciar com o Windows vem desligado por padrão');
 
@@ -680,8 +691,8 @@ async function main() {
           wifiDisconnect();
           await sleep(3000);
           const onlineBefore = await cdp.eval('navigator.onLine');
-          try { await provider.provider.close(); } catch (e) { /* já fechado */ }
-          try { if (media) { await media.close(); media = null; } } catch (e) { /* já fechado */ }
+          try { await closeBounded(provider.provider.close(), 4000); } catch (e) { /* já fechado */ }
+          try { if (media) { await closeBounded(media.close(), 4000); media = null; } } catch (e) { /* já fechado */ }
           await sleep(800);
           const offline = await cdp.eval('(async function () {' +
             '  var r = await space.downloads.list(); var it = r.items.filter(function (i) { return i.title === "Vídeo Real Offline"; })[0];' +
@@ -789,10 +800,53 @@ async function main() {
       record(true, 'Baixados/EPG de download pulados (js/downloads.js ainda ausente)', downloadsReady ? 'skip' : 'aguardando agente downloads');
     }
 
-    /* console limpo (tolerando o 401 esperado do gate em /api/auth/session) */
+    /* ---------- fonte PÚBLICA de EPG padrão (EPGShare01 BR1 real) ----------
+       Recarrega a página antes: depois do teste de download/offline o renderer
+       pode estar no meio de um reload (online/sessão), e precisamos de um shell
+       estável para trocar a lista ativa e baixar o guia público. */
+    await cdp.eval('location.reload()').catch(function () {});
+    await sleep(1200);
+    await cdp.waitFor(
+      '!!(window.App && App.shell && document.querySelectorAll("#sidebar .nav-item").length > 0)',
+      30000,
+      'shell após reload'
+    );
+    const noEpgList = '#EXTM3U\n#EXTINF:-1 tvg-id="SBT.br" group-title="Canais",SBT HD\nhttp://127.0.0.1:9/live.ts\n';
+    const defEpg = await cdp.eval('(async function () {' +
+      '  var text = ' + JSON.stringify(noEpgList) + ';' +
+      '  var list = await App.lists.saveFile({ name: "Lista sem EPG", filename: "sem-epg.m3u", size: text.length, text: text });' +
+      '  App.lists.setActive(list.id);' +
+      '  await App.catalog.init(list);' +
+      '  await App.catalog.refresh(list);' +
+      '  var cfg = await space.config.get();' +
+      '  var started = Date.now();' +
+      '  try { await App.epg.refresh(list); } catch (e) { return { ok: false, error: String(e && (e.message || e.code) || e) }; }' +
+      '  var st = App.epg.state();' +
+      '  var item = App.catalog.data.live.filter(function (i) { return i.ti === "SBT.br"; })[0];' +
+      '  var progs = item ? await App.epg.programsOf(item) : [];' +
+      '  var nowp = item ? App.epg.now(item) : null;' +
+      '  return { ok: true, cfg: cfg.epgUrl, sourceKind: st.sourceKind, channels: st.channelCount, programmes: st.programmeCount,' +
+      '    ms: Date.now() - started, itemTi: item ? item.ti : "", progs: progs.length, nowTitle: nowp ? nowp.title : "", nowChannel: nowp ? (nowp.channel || (item && item.ti)) : "" };' +
+      '})()');
+    record(defEpg.ok && defEpg.sourceKind === 'default' && defEpg.channels > 100 && defEpg.programmes > 1000,
+      'EPG público padrão carregado (EPGShare01 BR1)', JSON.stringify({ ok: defEpg.ok, sourceKind: defEpg.sourceKind, channels: defEpg.channels, programmes: defEpg.programmes, ms: defEpg.ms, cfg: defEpg.cfg, error: defEpg.error || '' }));
+    record(defEpg.progs > 0 && !!defEpg.nowTitle, 'tvg-id com prefixo casa por alias (SBT.br -> programa atual)', JSON.stringify({ itemTi: defEpg.itemTi, progs: defEpg.progs, nowTitle: defEpg.nowTitle, nowChannel: defEpg.nowChannel }));
+
+    /* captura do Guia usando a fonte PÚBLICA real (BR1) */
+    try {
+      await cdp.eval('(async function(){ if (App.desktop && App.desktop.guide) { App.desktop.guide.open(App.lists.active()); } await new Promise(function(r){setTimeout(r,1200)}); return true; })()');
+      await shot('15-guia-epg-br1');
+      await cdp.eval('(async function(){ if (App.desktop && App.desktop.guide) App.desktop.guide.close(); return true; })()');
+    } catch (e) { /* captura é opcional */ }
+
+    /* console limpo (tolerando o 401 esperado do gate em /api/auth/session e,
+       na prova offline, os 502 de /api/* porque o backend precisa de internet) */
     await sleep(500);
     let errors = cdp.consoleErrors();
     errors = errors.filter((e) => !(/status of 401/.test(e) && /\/api\/auth\/session/.test(e)));
+    if (OFFLINE_PROOF) {
+      errors = errors.filter((e) => !(/status of 502/.test(e) && /\/api\/(auth\/session|sync\/)/.test(e)));
+    }
     const pendingDownloadsAssets = !fs.existsSync(path.join(DESKTOP, 'src', 'renderer', 'js', 'downloads.js'));
     if (pendingDownloadsAssets) errors = errors.filter((e) => !/downloads\.(css|js)/.test(e));
     record(errors.length === 0, 'console sem erros inesperados', errors.slice(0, 3).join(' | '));
