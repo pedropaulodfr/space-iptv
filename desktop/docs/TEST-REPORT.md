@@ -39,18 +39,20 @@ Comando (runner via CDP, sem dependências; usa backend de teste local em
 node scripts/e2e-ui.js --electron <electron.exe> --shots --offline-proof
 ```
 
-**Resultado: 32/32 verificações PASS** na execução final
-(`--offline-proof --with-autostart`). Evidências capturadas em `dist/desktop-shots/`:
+**Resultado: 35/35 verificações PASS** na execução final
+(`--shots --offline-proof --with-autostart`). Evidências capturadas em `dist/desktop-shots/`:
 
 | Verificação | Resultado |
 |---|---|
 | login real com a conta de teste (cookies HttpOnly no `session.defaultSession`) | PASS |
 | sidebar na ordem exata, **sem "Administração"** | PASS |
 | HUD com usuário; sem qualquer menção a admin | PASS |
-| **palco preenche a janela**: `fill-stage`, `App.stageFit.fill=true`, sem faixas laterais | PASS (1350×681 → escala 0,703; HUD x=34..1316) |
-| HUD ocupa a largura e rodapé/hints dentro da janela | PASS |
+| **palco preenche a janela**: `fill-stage`, `App.stageFit.fill=true`, sem faixas laterais | PASS (1350×681 → escala 0,703) |
+| **layout compacto**: HUD encostado nas bordas (margem ~8px de projeto) e hints no fim da janela | PASS (HUD x=6..1344 em 1350; hints a 5,6px do fim) |
 | mover o mouse sobre a grade **não rola sozinho** (`scrollTop` 0→0) | PASS |
-| roda do mouse navega/rola a grade (0→1267) | PASS |
+| roda do mouse navega/rola a grade (0→1247) | PASS |
+| **barra de rolagem visível** na grade (altura do polegar proporcional) | PASS |
+| **arrastar a barra de rolagem** move a grade (1247→3355) | PASS (captura `16-barra-rolagem-filmes.png`) |
 | importação M3U (mesmo parser da web) + catálogo | PASS |
 | `#EXTM3U url-tvg` preservado (parser estendido) | PASS |
 | EPG XMLTV via `/_epg/source` (host LAN no allowlist) | PASS |
@@ -120,8 +122,8 @@ Estado anterior de testes (instalação antiga apontando para uma pasta temporá
 foi removido antes — o teste abaixo é de uma instalação **limpa** per-user:
 
 ```text
-instalador_sha256: 4d13388d55810e73a63278a018fc86b122870743db458d9dc3f48e3cc31ff443
-instalador_bytes: 104087563
+instalador_sha256: 6b06f56066722806b955c9fb5857111e0740d5c53bcac8b456563456eb8e9123
+instalador_bytes: 104091973
 
 === 0. estado limpo ===
 run_space_iptv: (ausente)   run_space_iptv_desktop: (ausente)
@@ -129,7 +131,7 @@ registry_app: ausente       uninstall_key: (ausente)
 
 === 1. instalacao silenciosa (/S) ===
 install_exit: 0
-display_name: Space IPTV     display_version: 1.0.1     publisher: Space IPTV
+display_name: Space IPTV     display_version: 1.0.2     publisher: Space IPTV
 install_dir: C:\Users\pedro\AppData\Local\Programs\Space IPTV   (per-user, sem admin)
 app_exe: True                app_asar: True
 shortcut_desktop: True       shortcut_startmenu: True

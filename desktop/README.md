@@ -6,9 +6,12 @@ mesmo login, mesmas listas. **O módulo de administração fica só na web.**
 
 - Shell glass/escuro com sidebar (Início, TV ao vivo, Filmes, Séries, Pesquisa,
   Favoritos, Baixados, Configurações), HUD com usuário/sessão e estado de rede.
-  O **palco preenche a janela** (em janelas mais largas que 16:9 a altura de
-  projeto é reduzida em vez de deixar faixas laterais) e a barra de menu nativa
-  fica auto-oculta (Alt mostra).
+  O **palco preenche a janela** e usa layout compacto: margem de segurança de 8px
+  (em vez dos 48px da TV), altura de projeto reduzida em janelas mais largas que
+  16:9 e barra de menu nativa auto-oculta (Alt mostra).
+- **Barra de rolagem própria** na grade de vídeos (e nas demais listas da tela):
+  mostra a posição, arrasta e clica; as listas continuam navegáveis por foco,
+  teclado e roda do mouse.
 - Login igual ao da web (`/api/auth/*`), sessão em cookies HttpOnly no
   `session.defaultSession`, logout limpa cookies e estado offline.
 - Importação de lista `.m3u/.m3u8` pelo **seletor nativo do Windows** (leitura no
@@ -73,7 +76,7 @@ O E2E usa o backend de teste local em `http://127.0.0.1:8789`
 ## Instalador (NSIS)
 
 ```powershell
-npm run dist         # -> ../dist/desktop/SpaceIPTV-Setup-1.0.1.exe
+npm run dist         # -> ../dist/desktop/SpaceIPTV-Setup-1.0.2.exe
 ```
 
 - Instalação **per-user** (sem UAC), NSIS com páginas: boas-vindas, destino,
