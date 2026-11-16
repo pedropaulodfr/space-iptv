@@ -198,8 +198,6 @@ function buildApplicationMenu() {
     {
       label: 'Exibir',
       submenu: [
-        { role: 'togglefullscreen', label: 'Tela cheia' },
-        { type: 'separator' },
         { role: 'resetZoom', label: 'Zoom padrão' },
         { role: 'zoomIn', label: 'Aumentar zoom' },
         { role: 'zoomOut', label: 'Diminuir zoom' }
@@ -291,6 +289,9 @@ async function createMainWindow() {
     backgroundColor: WINDOW_BG,
     title: 'Space IPTV',
     autoHideMenuBar: !IS_DEV,
+    /* desktop: o app usa o palco preenchido e o player é um overlay interno;
+       tela cheia do SO/HTML não é necessária (botão removido do HUD). */
+    fullscreenable: false,
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
       contextIsolation: true,
