@@ -239,7 +239,11 @@
   });
   g.addEventListener('offline', refreshStatus);
 
-  /* ---------- palco 1920x1080 --> janela ---------- */
+  /* ---------- palco 1920x1080 --> janela ----------
+     Web/TV: escala uniforme com letterbox (mantém a composição 16:9).
+     Desktop (App.isDesktop): em janelas mais largas que 16:9, escala pela LARGURA
+     e reduz a altura de projeto (`--stage-h`), então o conteúdo ocupa a janela
+     inteira sem faixas laterais. Em janelas estreitas cai no modo uniforme. */
   function fitNow() {
     fitRaf = 0;
     if (!stage) return;
@@ -248,8 +252,29 @@
       vw = g.visualViewport.width; vh = g.visualViewport.height;
     }
     var s = Math.min(vw / 1920, vh / 1080);
+    var designH = 1080, fill = false;
+    if (App.isDesktop) {
+      var sw = vw / 1920, sh = vh / 1080;
+      if (sw >= sh && sw > 0) {
+        s = sw;
+        designH = vh / s;
+        fill = true;
+      }
+    }
     if (!isFinite(s) || s <= 0) s = 1;
-    stage.style.transform = 'translate(' + ((vw - 1920 * s) / 2) + 'px,' + ((vh - 1080 * s) / 2) + 'px) scale(' + s + ')';
+    App.stageFit = { scale: s, width: vw, height: vh, designHeight: designH, fill: fill };
+    var root = document.documentElement;
+    if (fill) {
+      stage.style.height = designH + 'px';
+      stage.style.transform = 'translate(0px,0px) scale(' + s + ')';
+      root.style.setProperty('--stage-h', designH + 'px');
+      root.classList.add('fill-stage');
+    } else {
+      stage.style.height = '';
+      stage.style.transform = 'translate(' + ((vw - 1920 * s) / 2) + 'px,' + ((vh - 1080 * s) / 2) + 'px) scale(' + s + ')';
+      root.style.removeProperty('--stage-h');
+      root.classList.remove('fill-stage');
+    }
     if (warnEl) warnEl.hidden = !(vw < 1024 || vh < 576);
   }
   function scheduleFit() { if (!fitRaf) fitRaf = requestAnimationFrame(fitNow); }

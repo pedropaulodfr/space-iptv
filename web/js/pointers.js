@@ -220,6 +220,28 @@
   function afterProgrammatic() { lastHoverEl = null; }
 
   /* ---------- 8. hover ---------- */
+  /* Hover NUNCA rola lista: se o cartão/linha está parcialmente fora da área
+     visível, ignoramos o hover. Sem isso o foco mudava, a lista rolava sozinha
+     para mostrar o item e o item seguinte caía sob o cursor — rolagem infinita
+     sem usar a roda do mouse (bug reproduzido na web e no desktop). */
+  function insideScroll(el, root, axis) {
+    if (!el || !root) return true;
+    var r = el.getBoundingClientRect(), b = root.getBoundingClientRect();
+    if (!r.width && !r.height) return false;
+    if (axis === 'x') return r.left >= b.left - 1 && r.right <= b.right + 1;
+    return r.top >= b.top - 1 && r.bottom <= b.bottom + 1;
+  }
+  function hoverVisible(d) {
+    if (d.kind === 'vlist') {
+      var root = d.cell && d.cell.closest ? d.cell.closest('.vlist') : null;
+      return insideScroll(d.cell, root, 'y');
+    }
+    if (d.kind === 'hrow') {
+      var view = d.card && d.card.closest ? d.card.closest('.hr-view') : null;
+      return insideScroll(d.card, view || (d.card && d.card.parentElement), 'x');
+    }
+    return true;
+  }
   function onHover(d) {
     if (!d) return;
     if (d.kind === 'menu') { shellCall('hoverMenu', d.idx); afterProgrammatic(); return; }
@@ -229,7 +251,12 @@
       afterProgrammatic();
       return;
     }
-    if (d.kind === 'vlist' || d.kind === 'hrow') { applyFocus(d); afterProgrammatic(); return; }
+    if (d.kind === 'vlist' || d.kind === 'hrow') {
+      if (!hoverVisible(d)) { lastHoverEl = d.cell || d.card || lastHoverEl; return; }
+      applyFocus(d);
+      afterProgrammatic();
+      return;
+    }
     /* botões/campos: o realce de :hover do web.css dá o feedback; o clique ativa */
   }
 
