@@ -8,14 +8,18 @@
  *   channelOf(item), programsOf(item|channelId), prefetch(items), channels(),
  *   hasData(), dropCache(listId), __reset().
  *
- * Fonte:
+ * Fonte (nesta ordem de descoberta):
  *  - M3U:  App.catalog.data.head['url-tvg'] | head['x-tvg-url'] (varias URLs separadas por espaco)
  *  - Xtream: creds.server + '/xmltv.php?username=..&password=..' (credenciais so em memoria)
+ *  - Fallback: fonte publica padrao de `space.config.get().epgUrl` (Configuracoes >
+ *    "Fonte de EPG padrao"; '' = desligada). O EPGShare01 BR1 e o padrao do app.
+ * A origem fica em `state.source` (sem credenciais) e `state.sourceKind` = list|xtream|default,
+ * tambem gravada no meta do cache.
  * Download: fetch('/_epg/source?url=...') com fallback fetch(url) direto; gzip detectado pelos bytes
  * (0x1f 0x8b) e descomprimido com DecompressionStream quando o Chromium nao decodificou sozinho.
  *
  * Cache por lista (nunca toca em chaves cat.* ou eps.* nem no banco spaceiptv-sync):
- *   epg.meta.<listId>  {v, fetchedAt, ttlH, channelCount, programmeCount, source, chunks, bytes}
+ *   epg.meta.<listId>  {v, fetchedAt, ttlH, channelCount, programmeCount, source, sourceKind, chunks, bytes}
  *   epg.idx.<listId>   {v, channels:[{id,n,icon,segs:[{c,o,l}],count}], chunkCount, ...}
  *   epg.ch.<listId>.<i> bloco de ate 500 programas ([start, stop, title, desc, category])
  * Os programas sao lidos por bloco sob demanda (canal visivel), nunca o XMLTV inteiro a cada render.
@@ -34,6 +38,8 @@
   var MAX_CHUNK_CACHE = 16;
   var MAX_CHANNEL_CACHE = 48;
   var DEFAULT_OFFSET_MIN = 0;   /* XMLTV sem fuso: UTC (deterministico; o formato padrao traz offset) */
+  /* Host da fonte publica padrao: entra na allowlist do servidor interno antes do fetch. */
+  var DEFAULT_EPG_HOST = 'epgshare01.online';
 
   var BASE = 'js/epg/';
   try {
@@ -58,7 +64,7 @@
       channelCount: 0, programmeCount: 0,
       fetchedAt: 0, ttlH: DEFAULT_TTL_H, expiresAt: 0, stale: false,
       from: 0, to: 0,
-      source: '', error: '', progress: -1, fromCache: false, refreshing: false
+      source: '', sourceKind: '', error: '', progress: -1, fromCache: false, refreshing: false
     };
   }
   function state() {
@@ -67,7 +73,7 @@
       channelCount: st.channelCount, programmeCount: st.programmeCount,
       fetchedAt: st.fetchedAt, ttlH: st.ttlH, expiresAt: st.expiresAt, stale: st.stale,
       from: st.from, to: st.to,
-      source: st.source, error: st.error, progress: st.progress,
+      source: st.source, sourceKind: st.sourceKind, error: st.error, progress: st.progress,
       fromCache: st.fromCache, refreshing: st.refreshing
     };
   }
@@ -115,13 +121,16 @@
     }, function () { return DEFAULT_TTL_H; });
   }
 
-  function friendlyError(e) {
+  function friendlyError(e, src) {
     var c = e && e.code;
     if (c === 'invalid') return 'O guia de programação recebido não é um XMLTV válido.';
     if (c === 'http') return 'O servidor do guia de programação recusou a requisição (código ' + ((e && e.status) || '?') + ').';
     if (c === 'offline') return 'Sem conexão com a internet. O guia salvo continua disponível.';
     if (c === 'timeout') return 'O guia de programação demorou demais para responder.';
     if (c === 'parse') return 'O guia de programação veio em um formato inesperado (gzip inválido?).';
+    if (src && src.kind === 'default') {
+      return 'Não foi possível carregar a fonte pública de EPG. Verifique sua conexão ou troque/desligue a fonte em Configurações.';
+    }
     return 'Não foi possível carregar o guia de programação. Verifique a URL do EPG na lista.';
   }
 
@@ -138,8 +147,14 @@
     }, function () { return (d && d.head) || null; });
   }
 
-  function sourceOf(list) {
-    if (!list) return Promise.resolve(null);
+  /* 'm3u' -> 'list' no estado publico (a UI nao precisa saber o formato da lista). */
+  function sourceKindOf(kind) {
+    if (kind === 'm3u') return 'list';
+    return kind === 'xtream' || kind === 'default' ? kind : '';
+  }
+
+  /* Fonte que a propria lista fornece: url-tvg do M3U ou xmltv.php do Xtream. */
+  function listSourceOf(list) {
     if (list.type === 'xtream') {
       return Promise.resolve(App.lists && typeof App.lists.creds === 'function' ? App.lists.creds(list) : null).then(function (c) {
         if (!c || !c.server) return null;
@@ -157,6 +172,30 @@
       var urls = String(raw).split(/[\s,]+/).filter(isHttp);
       if (!urls.length) return null;
       return { url: urls[0], label: urls[0], kind: 'm3u' };
+    });
+  }
+
+  /* Fonte publica padrao de `space.config.get().epgUrl` ('' = desligada). Best-effort:
+     sem bridge (testes/browser) ou URL invalida nao ha fallback — segue o fluxo normal. */
+  function defaultEpgSource() {
+    var bridge = g.space;
+    if (!bridge || !bridge.config || typeof bridge.config.get !== 'function') return Promise.resolve(null);
+    return Promise.resolve().then(function () { return bridge.config.get(); }).then(function (c) {
+      var url = c && typeof c.epgUrl === 'string' ? c.epgUrl.trim() : '';
+      if (!isHttp(url)) return null;
+      var src = { url: url, label: url, kind: 'default' };
+      /* A allowlist e montada a partir das listas/catalogo e nao conhece esse host:
+         registra antes do fetch (best-effort, nunca bloqueia o carregamento). */
+      return registerHostsOnce([hostFromUrl(url), DEFAULT_EPG_HOST]).then(function () { return src; }, function () { return src; });
+    }, function () { return null; });
+  }
+
+  /* Descoberta final: lista (M3U/Xtream) -> fonte publica padrao -> null ('none'). */
+  function sourceOf(list) {
+    if (!list) return Promise.resolve(null);
+    return listSourceOf(list).then(function (src) {
+      if (src) return src;
+      return defaultEpgSource();
     });
   }
 
@@ -262,14 +301,29 @@
      das listas/catalogo). Registra best-effort antes de usar /_epg/source. Sem efeito fora do
      desktop ou se o bridge ainda nao existir. */
   var registeredHosts = {};
-  function registerSourceHost(url) {
-    var host = '';
-    try { host = String(new g.URL(url).hostname || '').toLowerCase(); } catch (e) { return Promise.resolve(); }
-    if (!host || registeredHosts[host]) return Promise.resolve();
+  function hostFromUrl(url) {
+    try { return String(new g.URL(url).hostname || '').toLowerCase(); } catch (e) { return ''; }
+  }
+  function registerHostsOnce(hosts) {
     var api = App.desktop && App.desktop.api;
-    if (!api || typeof api.registerMediaHosts !== 'function') return Promise.resolve();
-    registeredHosts[host] = true;
-    return Promise.resolve(api.registerMediaHosts([host])).then(null, function () { registeredHosts[host] = false; });
+    var need = [], i, h;
+    for (i = 0; i < hosts.length; i++) {
+      h = String(hosts[i] || '').toLowerCase();
+      if (!h || registeredHosts[h]) continue;
+      registeredHosts[h] = true;
+      need.push(h);
+    }
+    if (!need.length) return Promise.resolve();
+    if (!api || typeof api.registerMediaHosts !== 'function') {
+      for (i = 0; i < need.length; i++) registeredHosts[need[i]] = false;
+      return Promise.resolve();
+    }
+    return Promise.resolve(api.registerMediaHosts(need)).then(null, function () {
+      for (var k = 0; k < need.length; k++) registeredHosts[need[k]] = false;
+    });
+  }
+  function registerSourceHost(url) {
+    return registerHostsOnce([hostFromUrl(url)]);
   }
 
   function fetchOne(target, viaServer, sink, fetchOpts) {
@@ -289,11 +343,18 @@
     });
   }
 
+  /* Tempo máximo total para baixar+parsing do XMLTV: uma fonte pública lenta que
+     ficasse pendurada não pode deixar o "Carregando guia..." para sempre. */
+  var FETCH_TIMEOUT_MS = 90000;
+
   function fetchEpg(src, sink) {
     var ctl = typeof g.AbortController === 'function' ? new g.AbortController() : null;
     var opts = ctl ? { cache: 'no-store', credentials: 'same-origin', signal: ctl.signal } : { cache: 'no-store', credentials: 'same-origin' };
     var via = '/_epg/source?url=' + encodeURIComponent(src.url);
+    var timedOut = false;
+    var timer = null;
     function abort() { if (ctl) { try { ctl.abort(); } catch (e) { /* ignore */ } } }
+    function done() { if (timer) { clearTimeout(timer); timer = null; } }
     function go() {
       return fetchOne(via, true, sink, opts).then(function (r) {
         if (r && r.fallback) return fetchOne(src.url, false, sink, opts);
@@ -303,7 +364,17 @@
         return r;
       }, function (e) { abort(); throw e; });
     }
-    return registerSourceHost(src.url).then(go, go);
+    if (ctl) {
+      timer = setTimeout(function () { timedOut = true; abort(); }, FETCH_TIMEOUT_MS);
+    }
+    return registerSourceHost(src.url).then(go, go).then(function (r) {
+      done();
+      return r;
+    }, function (e) {
+      done();
+      if (timedOut) throw { code: 'timeout' };
+      throw e;
+    });
   }
 
   /* ------------------------------------------------------------------ parser */
@@ -411,12 +482,12 @@
     return Promise.all(ps);
   }
 
-  function saveCache(listId, built, ttlH, srcLabel, bytes) {
+  function saveCache(listId, built, ttlH, srcLabel, srcKind, bytes) {
     var meta = {
       v: CACHE_V, fetchedAt: Date.now(), ttlH: ttlH,
       channelCount: built.channelCount, programmeCount: built.programmeCount,
       from: built.from, to: built.to,
-      source: srcLabel || '', chunks: built.chunks.length, bytes: bytes || 0
+      source: srcLabel || '', sourceKind: srcKind || '', chunks: built.chunks.length, bytes: bytes || 0
     };
     var idx = {
       v: CACHE_V, channels: built.idxChannels, chunkCount: built.chunks.length,
@@ -451,22 +522,35 @@
       channels: idx.channels || [],
       byId: {},
       byIdLower: {},
+      byAlias: {},
       byName: {},
       chunkCount: idx.chunkCount || 0
     };
-    var i, k, ch, names;
+    var i, k, ch, names, al, al2;
     for (i = 0; i < mem.channels.length; i++) {
       ch = mem.channels[i];
       ch.count = countOf(ch);
       if (ch.id) {
         mem.byId[ch.id] = ch;
         mem.byIdLower[String(ch.id).toLowerCase()] = ch;
+        al = idAliases(ch.id);
+        for (k = 0; k < al.length; k++) {
+          al2 = al[k].toLowerCase();
+          if (al2 && !mem.byIdLower[al2] && !mem.byAlias[al2]) mem.byAlias[al2] = ch;
+        }
       }
       names = ch.n || [];
       for (k = 0; k < names.length; k++) {
         var nk = norm(names[k]);
         if (!nk) continue;
         (mem.byName[nk] = mem.byName[nk] || []).push(ch);
+        /* nome do agregador também pode vir prefixado ("São Paulo/SP SBT"):
+           indexa o sufixo normalizado como alias de busca. */
+        var aliasNames = idAliases(names[k]);
+        for (var a = 0; a < aliasNames.length; a++) {
+          var ak = norm(aliasNames[a]);
+          if (ak && ak !== nk) (mem.byName[ak] = mem.byName[ak] || []).push(ch);
+        }
       }
     }
     memChunks = {}; memChunkP = {}; chunkOrder = []; channelOrder = [];
@@ -477,7 +561,7 @@
       expiresAt: meta.fetchedAt + ttlMs(meta.ttlH || DEFAULT_TTL_H),
       stale: expired(meta, meta.ttlH || DEFAULT_TTL_H),
       from: meta.from || 0, to: meta.to || 0,
-      source: meta.source || '', error: '', fromCache: true, progress: 1, refreshing: false
+      source: meta.source || '', sourceKind: meta.sourceKind || '', error: '', fromCache: true, progress: 1, refreshing: false
     });
   }
   function clearMem() {
@@ -544,17 +628,45 @@
   }
 
   /* -------------------------------------------------------------- consultas */
+  /* IDs de EPG de agregadores públicos às vezes vêm com prefixo de região:
+     "São.Paulo/SP..SBT.br". Listas comuns usam "SBT.br". Derivamos aliases
+     (depois do último ".." e da última "/") para casar os dois formatos. */
+  function idAliases(value) {
+    var s = String(value == null ? '' : value).trim(), out = [], cut;
+    if (!s) return out;
+    cut = s.lastIndexOf('..');
+    if (cut >= 0 && cut + 2 < s.length) out.push(s.slice(cut + 2).trim());
+    cut = s.lastIndexOf('/');
+    if (cut >= 0 && cut + 1 < s.length) out.push(s.slice(cut + 1).trim());
+    var clean = [];
+    for (var i = 0; i < out.length; i++) {
+      var a = out[i];
+      if (!a || a === s || clean.indexOf(a) >= 0) continue;
+      clean.push(a);
+    }
+    return clean;
+  }
+
   function channelOf(item) {
     if (!mem || !item) return null;
     var id = item.ti || item.tvg || item['tvg-id'] || item.epgId || '';
-    var c = null;
-    if (id) c = mem.byId[id] || mem.byIdLower[String(id).toLowerCase()];
+    var c = null, i, aliases;
+    if (id) {
+      c = mem.byId[id] || mem.byIdLower[String(id).toLowerCase()] || mem.byAlias[String(id).toLowerCase()];
+      /* sentido inverso: a lista traz o id prefixado e o EPG traz o curto */
+      if (!c) {
+        aliases = idAliases(id);
+        for (i = 0; i < aliases.length && !c; i++) {
+          c = mem.byId[aliases[i]] || mem.byIdLower[aliases[i].toLowerCase()] || mem.byAlias[aliases[i].toLowerCase()] || null;
+        }
+      }
+    }
     if (c) return c;
     var k = norm(item.n || item.name || '');
     if (!k) return null;
     var list = mem.byName[k];
     if (!list || !list.length) return null;
-    for (var i = 0; i < list.length; i++) if (countOf(list[i]) > 0) return list[i];
+    for (var j = 0; j < list.length; j++) if (countOf(list[j]) > 0) return list[j];
     return list[0];
   }
 
@@ -611,9 +723,19 @@
 
   function programsOf(itemOrId) {
     if (!mem) return Promise.resolve([]);
-    var ch = typeof itemOrId === 'string'
-      ? (mem.byId[itemOrId] || mem.byIdLower[String(itemOrId).toLowerCase()] || null)
-      : channelOf(itemOrId);
+    var ch;
+    if (typeof itemOrId === 'string') {
+      var lower = String(itemOrId).toLowerCase();
+      ch = mem.byId[itemOrId] || mem.byIdLower[lower] || mem.byAlias[lower] || null;
+      if (!ch) {
+        var aliases = idAliases(itemOrId);
+        for (var i = 0; i < aliases.length && !ch; i++) {
+          ch = mem.byId[aliases[i]] || mem.byIdLower[aliases[i].toLowerCase()] || mem.byAlias[aliases[i].toLowerCase()] || null;
+        }
+      }
+    } else {
+      ch = channelOf(itemOrId);
+    }
     if (!ch) return Promise.resolve([]);
     return loadChannelData(ch).then(function (arr) { return arr || []; });
   }
@@ -652,7 +774,7 @@
 
   function applyFetchOk(list, src, ttlH, res) {
     var built = buildCache(res);
-    return saveCache(list.id, built, ttlH, src.label, res.bytes).then(function (saved) {
+    return saveCache(list.id, built, ttlH, src.label, sourceKindOf(src.kind), res.bytes).then(function (saved) {
       applyCache(list, saved.meta, saved.idx);
       setState({ fromCache: false, stale: false, refreshing: false, error: '', progress: 1 });
       emit('epg:done', {
@@ -678,7 +800,7 @@
       return s;
     }, function (e) {
       delete refreshing[id];
-      var msg = friendlyError(e);
+      var msg = friendlyError(e, src);
       setState({
         refreshing: false, error: msg, progress: -1,
         status: hadData ? 'ready' : 'error',
@@ -769,7 +891,7 @@
     });
     p = p.then(function (s) {
       delete busy[id];
-      if (s && s.status === 'none') throw { code: 'none', message: 'Esta lista não fornece EPG.', silent: true };
+      if (s && s.status === 'none') throw { code: 'none', message: 'Esta lista não fornece EPG e a fonte pública padrão está desligada em Configurações.', silent: true };
       if (s && s.error) throw { code: 'epg', message: s.error, silent: true };
       return s;
     }, function (e) {

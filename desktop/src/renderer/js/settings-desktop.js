@@ -2,7 +2,7 @@
  *
  * O `tv/js/screens/settings.js` já exibe `App.session.actions()`. Aqui anexamos:
  *   - pasta de downloads (mostrar/alterar; trocar NÃO apaga arquivos);
- *   - cache do guia (12/24/48 h) e "Atualizar guia agora";
+ *   - cache do guia (12/24/48 h), fonte pública de EPG padrão e "Atualizar guia agora";
  *   - iniciar com o Windows, iniciar minimizado na bandeja e fechar na bandeja;
  *   - Sobre (versão + aviso de build não assinado).
  * Também substituímos a ação de conta da web por uma que mostra papel "usuário"
@@ -200,6 +200,91 @@
 
   /* ===================== EPG ===================== */
 
+  /* Mesma URL padrão de `src/main/config.js` (DEFAULT_EPG_URL). O renderer não
+     importa o main, então a constante é espelhada aqui — mudar nos dois lugares. */
+  var DEFAULT_EPG_URL = 'https://epgshare01.online/epgshare01/epg_ripper_BR1.xml.gz';
+
+  function epgSourceUrl() {
+    return S.cfg && typeof S.cfg.epgUrl === 'string' ? S.cfg.epgUrl : '';
+  }
+
+  /* Rótulos de ação não quebram linha (`.btn` é nowrap): no menu mostramos só o
+     host; a URL completa aparece no formulário. '' = desligada. */
+  function epgSourceLabel() {
+    var url = epgSourceUrl();
+    if (!url) return 'desligada';
+    try {
+      var host = String(new g.URL(url).hostname || '');
+      if (!host) return 'personalizada';
+      return host + (url === DEFAULT_EPG_URL ? ' (padrão)' : '');
+    } catch (e) {
+      return 'personalizada';
+    }
+  }
+
+  function validEpgUrl(raw) {
+    if (!/^https?:\/\/[^\s]+$/i.test(raw)) return false;
+    try {
+      var u = new g.URL(raw);
+      return (u.protocol === 'http:' || u.protocol === 'https:') && !!u.hostname;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /* Descarta o guia salvo da lista ativa (a fonte mudou): o próximo load baixa de novo. */
+  function discardEpgCache() {
+    var list = App.lists && typeof App.lists.active === 'function' ? App.lists.active() : null;
+    if (!list || !list.id || !App.epg || typeof App.epg.dropCache !== 'function') return Promise.resolve();
+    return Promise.resolve(App.epg.dropCache(list.id)).then(function () { }, function () { });
+  }
+
+  function epgSourceDialog() {
+    var cfg = spaceConfig();
+    if (!cfg || typeof cfg.set !== 'function') return toast('Não foi possível abrir as configurações.');
+    var current = epgSourceUrl();
+    App.ui.form({
+      title: 'Fonte de EPG padrão',
+      note: 'Usada quando a lista ativa não informa um guia (url-tvg) nem fornece xmltv.php (Xtream). ' +
+        'Deixe em branco para desligar. Fonte pública padrão (EPGShare01, Brasil): ' + DEFAULT_EPG_URL,
+      fields: [{
+        id: 'epgUrl',
+        label: 'URL do EPG (XMLTV .xml ou .xml.gz)',
+        value: current,
+        placeholder: DEFAULT_EPG_URL
+      }],
+      submit: 'Salvar fonte',
+      onSubmit: function (v) {
+        var url = String(v && v.epgUrl != null ? v.epgUrl : '').replace(/^\s+|\s+$/g, '');
+        if (url && !validEpgUrl(url)) {
+          return 'Informe uma URL http:// ou https:// válida (ex.: ' + DEFAULT_EPG_URL + ').';
+        }
+        return Promise.resolve(cfg.set({ epgUrl: url })).then(function (res) {
+          if (res && res.ok === false) return res.error || 'Não foi possível salvar a fonte de EPG.';
+          S.cfg = res && typeof res === 'object' ? res : S.cfg;
+          return null;
+        }, function () { return 'Não foi possível salvar a fonte de EPG.'; });
+      }
+    }).then(function (saved) {
+      if (!saved) return;
+      var url = epgSourceUrl();
+      toast(url ? 'Fonte de EPG padrão salva.' : 'Fonte de EPG padrão desligada.', 5000);
+      discardEpgCache().then(function () {
+        return App.ui.confirm({
+          title: 'Atualizar o guia agora?',
+          msg: url
+            ? 'O guia salvo foi descartado. Baixar de novo usando ' + url + '?'
+            : 'O guia salvo foi descartado. Atualizar com o guia que a lista fornecer (se houver)?',
+          yes: 'Atualizar agora',
+          no: 'Depois'
+        });
+      }).then(function (yes) {
+        if (!yes) { toast('O guia será atualizado na próxima vez que você abrir.'); return; }
+        refreshEpgNow();
+      });
+    });
+  }
+
   function epgTtlMenu() {
     var current = S.cfg && S.cfg.epgTtlHours ? Number(S.cfg.epgTtlHours) : 24;
     var options = [12, 24, 48];
@@ -366,6 +451,10 @@
       run: epgTtlMenu
     });
     actions.push({
+      label: 'Fonte de EPG padrão: ' + epgSourceLabel(),
+      run: epgSourceDialog
+    });
+    actions.push({
       label: 'Atualizar guia agora',
       run: refreshEpgNow
     });
@@ -460,6 +549,7 @@
   App.desktop.settings = {
     refreshState: refreshState,
     downloadsFolderDialog: downloadsFolderDialog,
+    epgSourceDialog: epgSourceDialog,
     about: about
   };
 })(window);

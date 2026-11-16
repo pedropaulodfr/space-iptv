@@ -23,6 +23,10 @@ const { execFileSync } = require('child_process');
 
 const APP_FOLDER = 'Space IPTV';
 const DEFAULT_API_ORIGIN = 'https://space-iptv.pages.dev';
+/* Fonte pública de EPG (XMLTV gzip) usada quando a lista ativa não informa um
+ * guia (`url-tvg`) nem fornece `xmltv.php` (Xtream). EPGShare01 — agregador
+ * público da comunidade IPTV; ver `docs/EPG.md`. '' = usuário desligou. */
+const DEFAULT_EPG_URL = 'https://epgshare01.online/epgshare01/epg_ripper_BR1.xml.gz';
 const PORT_MIN = 41000;
 const PORT_MAX = 49000;
 const MIN_FREE_BYTES = 100 * 1024 * 1024; /* 100 MB: abaixo disso não vale baixar */
@@ -34,6 +38,7 @@ const DEFAULTS = {
   internalPort: 0,
   downloadsDir: '',
   epgTtlHours: 24,
+  epgUrl: DEFAULT_EPG_URL,
   startWithWindows: false,
   startMinimizedToTray: false,
   minimizeToTrayOnClose: false,
@@ -51,6 +56,21 @@ function normalizeOrigin(value) {
     if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
     if (!u.hostname) return '';
     return u.origin;
+  } catch (e) {
+    return '';
+  }
+}
+
+/* URL de EPG aceita: '' (desligado) ou http(s) com host. Mantém o texto como o
+ * usuário colou (query string pode ser necessária); só trim e limite de tamanho. */
+function normalizeEpgUrl(value) {
+  const raw = String(value == null ? '' : value).trim();
+  if (!raw || raw.length > 2048) return '';
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+    if (!u.hostname) return '';
+    return raw;
   } catch (e) {
     return '';
   }
@@ -90,6 +110,16 @@ function sanitize(raw) {
   data.downloadsDir = typeof raw.downloadsDir === 'string' ? raw.downloadsDir.trim().slice(0, 1024) : '';
   const ttl = Number(raw.epgTtlHours);
   if (EPG_TTL_ALLOWED.indexOf(ttl) >= 0) data.epgTtlHours = ttl;
+  /* Fonte de EPG padrão: '' desliga; URL válida substitui; valor inválido no
+     arquivo mantém a fonte pública padrão (nunca desliga por lixo). */
+  if (raw.epgUrl !== undefined && raw.epgUrl !== null) {
+    if (typeof raw.epgUrl === 'string' && !raw.epgUrl.trim()) {
+      data.epgUrl = '';
+    } else {
+      const epg = normalizeEpgUrl(raw.epgUrl);
+      if (epg) data.epgUrl = epg;
+    }
+  }
   data.startWithWindows = raw.startWithWindows === true;
   data.startMinimizedToTray = raw.startMinimizedToTray === true;
   data.minimizeToTrayOnClose = raw.minimizeToTrayOnClose === true;
@@ -337,6 +367,7 @@ function createConfig(opts) {
       downloadsDir: dirInfo.path,
       downloadsFreeBytes: dirInfo && dirInfo.freeBytes != null ? dirInfo.freeBytes : null,
       epgTtlHours: data.epgTtlHours,
+      epgUrl: data.epgUrl,
       startWithWindows: data.startWithWindows,
       startMinimizedToTray: data.startMinimizedToTray,
       minimizeToTrayOnClose: data.minimizeToTrayOnClose,
@@ -361,6 +392,16 @@ function createConfig(opts) {
       const ttl = Number(patch.epgTtlHours);
       if (EPG_TTL_ALLOWED.indexOf(ttl) < 0) throw configError('invalid_value', 'O cache do guia deve ser 12, 24 ou 48 horas.');
       next.epgTtlHours = ttl;
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'epgUrl')) {
+      const rawUrl = String(patch.epgUrl == null ? '' : patch.epgUrl).trim();
+      if (!rawUrl) {
+        next.epgUrl = '';   /* desligado: o app não busca fonte pública de EPG */
+      } else {
+        const epg = normalizeEpgUrl(rawUrl);
+        if (!epg) throw configError('invalid_url', 'A URL do EPG precisa começar com http:// ou https:// e ser válida.');
+        next.epgUrl = epg;
+      }
     }
     if (Object.prototype.hasOwnProperty.call(patch, 'startWithWindows')) next.startWithWindows = patch.startWithWindows === true;
     if (Object.prototype.hasOwnProperty.call(patch, 'startMinimizedToTray')) next.startMinimizedToTray = patch.startMinimizedToTray === true;
@@ -481,11 +522,13 @@ module.exports = {
   createConfig: createConfig,
   DEFAULTS: DEFAULTS,
   DEFAULT_API_ORIGIN: DEFAULT_API_ORIGIN,
+  DEFAULT_EPG_URL: DEFAULT_EPG_URL,
   PORT_MIN: PORT_MIN,
   PORT_MAX: PORT_MAX,
   MIN_FREE_BYTES: MIN_FREE_BYTES,
   EPG_TTL_ALLOWED: EPG_TTL_ALLOWED,
   normalizeOrigin: normalizeOrigin,
+  normalizeEpgUrl: normalizeEpgUrl,
   sanitize: sanitize,
   checkWritableDir: checkWritableDir,
   readRegistryDownloadsDir: readRegistryDownloadsDir,
