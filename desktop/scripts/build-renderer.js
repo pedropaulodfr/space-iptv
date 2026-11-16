@@ -19,7 +19,7 @@ const SRC = path.join(DESKTOP, 'src', 'renderer');
 
 /* Arquivos do app web carregados pelo desktop. `web/js/upload.js` é trocado por
  * `src/renderer/js/upload-desktop.js`; `web/js/screens/admin.js` nunca entra. */
-const WEB_JS = ['keys.js', 'pointers.js', 'net.js', 'session.js', 'sync.js', 'player.js'];
+const WEB_JS = ['keys.js', 'pointers.js', 'net.js', 'session.js', 'sync.js', 'player.js', 'login.js'];
 const WEB_CSS = ['web.css', 'login.css'];
 
 const REQUIRED = [
@@ -31,10 +31,18 @@ const REQUIRED = [
   'css/desktop.css',
   'tv/css/design-system.css',
   'tv/css/app.css',
+  'web/js/login.js',
   'web/js/shell.js',
   'web/js/player.js',
   'web/vendor/hls.min.js',
-  'web/vendor/mpegts.min.js'
+  'web/vendor/mpegts.min.js',
+  'css/downloads.css',
+  'js/downloads.js',
+  'css/epg.css',
+  'js/epg/epg-parse.js',
+  'js/epg/epg.js',
+  'js/epg/guide-screen.js',
+  'js/epg/live-epg.js'
 ];
 
 function log(...args) {

@@ -3,13 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http:; font-src 'self'; media-src 'self' blob: data: http: https:; connect-src 'self' http: https:; worker-src 'self' blob:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http:; font-src 'self'; media-src 'self' blob: data: http: https:; connect-src 'self' http: https:; worker-src 'self' blob:">
 <title>Space IPTV</title>
 <link rel="icon" type="image/png" href="tv/icon.png">
 <link rel="stylesheet" href="tv/css/design-system.css">
 <link rel="stylesheet" href="tv/css/app.css">
 <link rel="stylesheet" href="web/css/web.css">
 <link rel="stylesheet" href="css/desktop.css">
+<link rel="stylesheet" href="css/downloads.css">
+<link rel="stylesheet" href="css/epg.css">
 </head>
 <body>
 <!-- Palco fixo de 1920x1080: web/css/web.css escala e centraliza; desktop.css ajusta o desktop -->
@@ -83,8 +85,10 @@
 <!-- Extensões desktop -->
 <script src="js/upload-desktop.js"></script>
 <script src="js/downloads.js"></script>
+<script src="js/epg/epg-parse.js"></script>
 <script src="js/epg/epg.js"></script>
 <script src="js/epg/guide-screen.js"></script>
+<script src="js/epg/live-epg.js"></script>
 <script src="js/settings-desktop.js"></script>
 <script src="js/bootstrap.js"></script>
 
@@ -92,3 +96,4 @@
 <script src="web/js/shell.js"></script>
 </body>
 </html>
+
