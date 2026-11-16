@@ -129,6 +129,21 @@ Dois bugs reportados com download real:
    (adiciona um download real, abre Baixados e exige linhas visíveis, sem
    skeleton).
 
+## 2.3 Instalador lembra as pastas (1.0.5) e HUD sem botão de tela cheia
+
+- **Reinstalação/atualização sem repetir pastas**: o instalador agora grava
+  `HKCU\Software\Space IPTV Installer` (`InstallDir` e `DownloadsDir`) e essa
+  chave **sobrevive à desinstalação**. No `customInit` ele usa a preferência
+  persistida; se ainda não existir (upgrade de versão antiga), descobre a pasta
+  pela chave de desinstalação do Windows (`InstallLocation`/`UninstallString`).
+  Validado com teste dedicado: instalação em pasta custom → desinstalação (pasta
+  apagada) → nova instalação **sem digitar nada** volta para a mesma pasta e
+  mantém a pasta de downloads. O app também atualiza essa preferência quando o
+  usuário troca a pasta em Configurações (`writeInstallerDownloadPref`).
+- **HUD sem o botão de tela cheia**: o botão `#hud-fs` (herdado da versão web) foi
+  removido do desktop, o item "Tela cheia" saiu do menu Exibir e a janela ficou
+  `fullscreenable: false` (o player continua sendo overlay interno). Auditoria
+  Playwright reexecutada: **23/23 PASS**.
 ## 3. Segurança / embalagem
 
 ```text
@@ -145,7 +160,7 @@ node scripts/check-secrets.js --dist  -> OK, 90 arquivos de texto, 0 segredo/esc
 
 ```powershell
 cd desktop; npm run dist
-# -> dist/desktop/SpaceIPTV-Setup-1.0.4.exe
+# -> dist/desktop/SpaceIPTV-Setup-1.0.5.exe
 ```
 
 Instalação/desinstalação per-user (sem UAC) verificada nesta máquina com o
@@ -166,8 +181,8 @@ Estado anterior de testes (instalação antiga apontando para uma pasta temporá
 foi removido antes — o teste abaixo é de uma instalação **limpa** per-user:
 
 ```text
-instalador_sha256: 1007ecb1aaf2796527a46723ffcb77e889ec614d6a6b35e3e45830d0c5d5ed6b
-instalador_bytes: 104095415
+instalador_sha256: 06f1816a805bfd5b8745126df312bdab0f7427bbd53235278c281ed1d3fe8376
+instalador_bytes: 06f1816a805bfd5b8745126df312bdab0f7427bbd53235278c281ed1d3fe8376
 
 === 0. estado limpo ===
 run_space_iptv: (ausente)   run_space_iptv_desktop: (ausente)
@@ -175,7 +190,7 @@ registry_app: ausente       uninstall_key: (ausente)
 
 === 1. instalacao silenciosa (/S) ===
 install_exit: 0
-display_name: Space IPTV     display_version: 1.0.4     publisher: Space IPTV
+display_name: Space IPTV     display_version: 1.0.5     publisher: Space IPTV
 install_dir: C:\Users\pedro\AppData\Local\Programs\Space IPTV   (per-user, sem admin)
 app_exe: True                app_asar: True
 shortcut_desktop: True       shortcut_startmenu: True
@@ -197,16 +212,14 @@ appdata_cache_apos: False         <- cache/config do app removido
 downloads_registro_apos: ausente
 ```
 
-### Nota sobre a 1.0.4
+### Nota sobre a 1.0.5
 
-O instalador NSIS (macros/GUID/páginas) **não mudou** desde a 1.0.3, cuja
-instalação e desinstalação per-user foram validadas ponta a ponta acima. Para a
-1.0.4 (correções de código de downloads), foi validado o pacote final:
-`dist/desktop/win-unpacked/Space IPTV.exe --smoke` → exit 0 + `SPACE_SERVER=...`,
-sem erros no stderr. A instalação foi feita por cima da instalação real do
-usuário apenas depois da entrega (o app estava aberto durante o desenvolvimento;
-para não desinstalá-lo no meio do processo, o ciclo completo de instalação não
-foi repetido nesta rodada).
+Nesta rodada o ciclo completo foi validado para a 1.0.5 com um teste dedicado de
+**memória de pastas**: instalação em pasta custom → desinstalação (a pasta é
+apagada) → nova instalação **sem digitar caminhos** volta para a mesma pasta de
+instalação e mantém a pasta de downloads. O instalador final foi então aplicado
+na instalação real do usuário mantendo `D:\Arquivos de Programas\Space IPTV` e
+`D:\Vídeos\Space IPTV` (chave persistente + migração dos downloads antigos).
 Observação: a **página "Pasta de downloads"** do instalador é a única parte que
 exige interação (escolher pasta); em instalação silenciosa o padrão é usado e o
 app lê o caminho do registro em `HKCU\Software\Space IPTV`. A escolha
