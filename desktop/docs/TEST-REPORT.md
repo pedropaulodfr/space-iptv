@@ -189,7 +189,7 @@ foi removido antes — o teste abaixo é de uma instalação **limpa** per-user:
 
 ```text
 instalador_sha256: 5df5d79b20040ee2990da9ac2f1500a9de0fd9ebacc1eca121d5f69bb12c8988
-instalador_bytes: 06f1816a805bfd5b8745126df312bdab0f7427bbd53235278c281ed1d3fe8376
+instalador_bytes: 104097253
 
 === 0. estado limpo ===
 run_space_iptv: (ausente)   run_space_iptv_desktop: (ausente)
