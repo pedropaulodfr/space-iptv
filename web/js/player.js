@@ -307,9 +307,17 @@
     E.muteBtn.setAttribute('aria-label', label);
     E.muteBtn.title = label;
   }
+  function desktopFullscreenOn() {
+    return !!(App.desktop && App.desktop.playerFullscreen === true);
+  }
+  function desktopFsBridge() {
+    var sp = g.space;
+    if (!sp || !sp.window || typeof sp.window.toggleFullscreen !== 'function') return null;
+    return sp.window;
+  }
   function syncFullscreen() {
     if (!E.fullBtn) return;
-    var on = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    var on = !!(document.fullscreenElement || document.webkitFullscreenElement) || desktopFullscreenOn();
     var label = on ? 'Sair da tela cheia' : 'Tela cheia';
     E.fullBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
     E.fullBtn.setAttribute('aria-label', label);
@@ -720,6 +728,22 @@
   }
 
   function toggleFullscreen() {
+    /* Desktop (Electron): fullscreen do HTML é bloqueado em alguns ambientes;
+       usa a janela nativa via IPC e mantém o ícone sincronizado. */
+    var bridge = desktopFsBridge();
+    if (bridge) {
+      try {
+        var r = bridge.toggleFullscreen();
+        if (r && r.then) {
+          r.then(function (st) {
+            if (!App.desktop) App.desktop = {};
+            App.desktop.playerFullscreen = !!(st && st.fullscreen);
+            syncFullscreen();
+          }, function () { syncFullscreen(); });
+        }
+      } catch (e) { /* mantém o fallback abaixo */ }
+      return;
+    }
     try {
       var on = document.fullscreenElement || document.webkitFullscreenElement;
       if (on) {
@@ -1034,7 +1058,10 @@
       return true;
     }
     switch (a) {
-      case 'back': case 'stop': case 'exit': close(); break;
+      case 'back': case 'stop': case 'exit':
+        if (desktopFullscreenOn()) { toggleFullscreen(); break; }
+        close();
+        break;
       case 'ok':
         if (S.blocked) { resumePlayback(); }
         else if (S.live) { togglePanel(true); }
@@ -1188,6 +1215,7 @@
   App.player = {
     play: play,
     close: close,
-    isOpen: function () { return !!S; }
+    isOpen: function () { return !!S; },
+    syncFullscreen: syncFullscreen
   };
 })(window);

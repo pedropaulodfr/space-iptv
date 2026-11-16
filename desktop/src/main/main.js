@@ -289,9 +289,8 @@ async function createMainWindow() {
     backgroundColor: WINDOW_BG,
     title: 'Space IPTV',
     autoHideMenuBar: !IS_DEV,
-    /* desktop: o app usa o palco preenchido e o player é um overlay interno;
-       tela cheia do SO/HTML não é necessária (botão removido do HUD). */
-    fullscreenable: false,
+    /* O HUD não tem botão de tela cheia, mas o PLAYER tem (e usa
+       requestFullscreen); por isso a janela continua fullscreenable. */
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
       contextIsolation: true,
@@ -314,6 +313,9 @@ async function createMainWindow() {
   installNavigationGuards(win);
   S.windowState.track(win);
   S.windowState.applyRestoredState(win, restored);
+  /* tela cheia do player (via IPC) — mantém HUD/ícone sincronizados */
+  win.on('enter-full-screen', function () { emit('window', { type: 'fullscreen', fullscreen: true }); });
+  win.on('leave-full-screen', function () { emit('window', { type: 'fullscreen', fullscreen: false }); });
 
   const hidden = shouldStartHidden();
   win.once('ready-to-show', function () {

@@ -375,6 +375,28 @@
         });
       } catch (e) { /* ignore */ }
       try {
+        space.events.on('window', function (payload) {
+          if (!payload || payload.type !== 'fullscreen') return;
+          if (!App.desktop) App.desktop = {};
+          App.desktop.playerFullscreen = payload.fullscreen === true;
+          if (App.player && typeof App.player.syncFullscreen === 'function') {
+            try { App.player.syncFullscreen(); } catch (e2) { /* ignore */ }
+          }
+        });
+      } catch (e) { /* ignore */ }
+      try {
+        if (space.window && typeof space.window.getFullscreen === 'function') {
+          space.window.getFullscreen().then(function (st) {
+            if (!st) return;
+            if (!App.desktop) App.desktop = {};
+            App.desktop.playerFullscreen = st.fullscreen === true;
+            if (App.player && typeof App.player.syncFullscreen === 'function') {
+              try { App.player.syncFullscreen(); } catch (e2) { /* ignore */ }
+            }
+          }, function () { /* ignore */ });
+        }
+      } catch (e) { /* ignore */ }
+      try {
         space.events.on('update', function (payload) {
           if (!payload) return;
           if (payload.state === 'downloaded') {

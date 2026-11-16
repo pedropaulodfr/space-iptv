@@ -139,6 +139,23 @@ function createIpc(opts) {
     return true;
   });
 
+  /* ---------- janela (tela cheia do player) ---------- */
+  handle('space:window:get-fullscreen', function () {
+    const win = mainWindow();
+    return { fullscreen: !!(win && win.isFullScreen()) };
+  });
+
+  handle('space:window:toggle-fullscreen', function () {
+    const win = mainWindow();
+    if (!win) return { fullscreen: false, error: 'Janela indisponível.' };
+    try {
+      win.setFullScreen(!win.isFullScreen());
+      return { fullscreen: win.isFullScreen() };
+    } catch (e) {
+      return { fullscreen: false, error: (e && e.message) || String(e) };
+    }
+  });
+
   /* ---------- arquivos (somente o que o usuário escolheu no dialog nativo) ---------- */
   handle('space:files:pick-m3u', async function (arg) {
     const a = electronApi();

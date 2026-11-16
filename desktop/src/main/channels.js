@@ -45,6 +45,10 @@ module.exports = {
   AUTOSTART_GET: 'space:autostart:get',
   AUTOSTART_SET: 'space:autostart:set',
 
+  /* janela */
+  WINDOW_GET_FULLSCREEN: 'space:window:get-fullscreen',
+  WINDOW_TOGGLE_FULLSCREEN: 'space:window:toggle-fullscreen',
+
   /* utilidades */
   EXTERNAL_OPEN: 'space:external:open',
   REGISTER_MEDIA_HOSTS: 'space:media-hosts:register',

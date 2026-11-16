@@ -83,6 +83,11 @@ const space = {
     hideToTray: function () { return invoke(C.APP_HIDE_TO_TRAY); }
   },
 
+  window: {
+    getFullscreen: function () { return invoke('space:window:get-fullscreen'); },
+    toggleFullscreen: function () { return invoke('space:window:toggle-fullscreen'); }
+  },
+
   files: {
     /* {maxBytes?} -> {ok, canceled?, name?, size?, text?, error?} */
     pickM3u: function (opts) {
