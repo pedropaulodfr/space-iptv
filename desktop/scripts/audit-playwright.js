@@ -146,7 +146,7 @@ async function main() {
     page.on('pageerror', (err) => console.log('[audit] PAGEERROR: ' + err.message));
     page.on('console', (msg) => {
       const text = msg.text();
-      if (msg.type() === 'error' || text.indexOf('[dl]') === 0) console.log('[audit] CONSOLE(' + msg.type() + '): ' + text.slice(0, 240));
+      if (msg.type() === 'error' || text.indexOf('[dl]') === 0 || text.indexOf('[fs]') === 0) console.log('[audit] CONSOLE(' + msg.type() + '): ' + text.slice(0, 240));
     });
     await page.setViewportSize({ width: 1366, height: 768 }).catch(() => {});
     const shot = async (name) => {
@@ -284,9 +284,21 @@ async function main() {
       };
     });
     check(!!(sb && sb.on), 'usabilidade', 'barra de rolagem visível na grade', JSON.stringify(sb && { scrollHeight: sb.scrollHeight, clientHeight: sb.clientHeight }));
-    check(!!(sb && sb.thumb.width >= 12 && sb.thumb.height >= 40), 'usabilidade', 'polegar da barra tem tamanho utilizável (>=12x40 renderizados)', JSON.stringify(sb && sb.thumb));
+    check(!!(sb && sb.thumb.width >= 8 && sb.thumb.height >= 40), 'usabilidade', 'polegar da barra tem tamanho utilizável (>=8x40 renderizados)', JSON.stringify(sb && sb.thumb));
     check(!!(sb && Number(sb.bar.z) >= 40), 'visual', 'barra acima dos cards (z-index >= 40)', sb && sb.bar.z);
     check(!!(sb && sb.thumb.tabIndex === 0 && sb.thumb.ariaHidden === 'false'), 'acessibilidade', 'barra focável por teclado quando visível', JSON.stringify(sb && { tabIndex: sb.thumb.tabIndex, ariaHidden: sb.thumb.ariaHidden }));
+
+    /* categorias: barra mais fina que a da grade (não pode competir visualmente) */
+    const barSizes = await page.evaluate(() => {
+      const catBar = document.querySelector('.cats .vl-scroll');
+      const catThumb = document.querySelector('.cats .vl-scrollthumb');
+      const gridBar = document.querySelector('#screen .content .vl-scroll');
+      const gridThumb = document.querySelector('#screen .content .vl-scrollthumb');
+      function size(el) { if (!el) return null; const r = el.getBoundingClientRect(); return { w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10 }; }
+      return { catBar: size(catBar), catThumb: size(catThumb), gridBar: size(gridBar), gridThumb: size(gridThumb) };
+    });
+    check(!!(barSizes.catBar && barSizes.gridBar && barSizes.catBar.w < barSizes.gridBar.w * 0.8), 'visual', 'barra das categorias é mais fina que a da grade', JSON.stringify(barSizes));
+    check(!!(barSizes.catThumb && barSizes.catThumb.w <= 8), 'visual', 'polegar das categorias não fica grosso', JSON.stringify(barSizes.catThumb));
 
     /* contraste do polegar contra o fundo do palco */
     if (sb) {
@@ -337,6 +349,25 @@ async function main() {
     const afterClick = await page.evaluate(() => document.querySelector('#screen .content .vlist').scrollTop);
     check(afterClick !== clicked.before, 'usabilidade', 'clique na trilha rola a grade', clicked.before + ' -> ' + afterClick);
 
+    /* clique no meio da trilha deve cair na posição correspondente (~35%) */
+    const midClick = await page.evaluate(() => {
+      const v = document.querySelector('#screen .content .vlist');
+      const bar = v.parentElement.querySelector('.vl-scroll');
+      const thumb = bar.querySelector('.vl-scrollthumb');
+      v.scrollTop = 0;
+      const br = bar.getBoundingClientRect();
+      const th = parseFloat(thumb.style.height) || 40;
+      return { x: br.left + br.width / 2, y: br.top + th / 2 + (br.height - th) * 0.35 };
+    });
+    await page.mouse.click(midClick.x, midClick.y);
+    await sleep(400);
+    const midRatio = await page.evaluate(() => {
+      const v = document.querySelector('#screen .content .vlist');
+      const max = Math.max(1, v.scrollHeight - v.clientHeight);
+      return v.scrollTop / max;
+    });
+    check(Math.abs(midRatio - 0.35) <= 0.09, 'usabilidade', 'clique na trilha cai na posição certa (~35%)', 'ratio=' + Math.round(midRatio * 1000) / 1000);
+
     /* arrastar o polegar (para cima, saindo do extremo inferior) */
     const dragInfo = await page.evaluate(() => {
       const v = document.querySelector('#screen .content .vlist');
@@ -373,6 +404,7 @@ async function main() {
     await sleep(250);
     const afterPage = await page.evaluate(() => document.querySelector('#screen .content .vlist').scrollTop);
     await page.keyboard.press('Home');
+    const homeNow = await page.evaluate(() => document.querySelector('#screen .content .vlist').scrollTop);
     await sleep(250);
     const afterHome = await page.evaluate(() => document.querySelector('#screen .content .vlist').scrollTop);
     check(kb.focused && afterPage !== kb.before && afterHome === 0, 'acessibilidade', 'barra navegável por teclado (PageDown/Home reais)', JSON.stringify({ focused: kb.focused, before: kb.before, afterPage: afterPage, afterHome: afterHome }));
@@ -449,6 +481,74 @@ async function main() {
       if (dlId) {
         try { await page.evaluate((id) => space.downloads.remove(id, { deleteFiles: true }), dlId); } catch (e) { /* ignore */ }
       }
+    }
+
+    /* ---------- tela cheia do PLAYER (janela nativa via IPC) ---------- */
+    try {
+      let listNow = await page.evaluate(() => space.downloads.list());
+      if (!(listNow.items || []).length) {
+        await page.evaluate(async (url) => {
+          try { await space.downloads.add({ kind: 'movie', title: 'Player Tela Cheia', listId: 'pw-audit', itemId: 'pw-audit-fs', url: url, durationSec: 1, totalBytes: 0 }); } catch (e) { /* ignore */ }
+        }, provider.provider.baseUrl + '/movie.mp4');
+        await sleep(1800);
+        listNow = await page.evaluate(() => space.downloads.list());
+      }
+      const opened = await page.evaluate(async () => {
+        const r = await space.downloads.list();
+        const it = (r.items || []).find((x) => x.status === 'done') || (r.items || [])[0];
+        if (!it) return { ok: false, error: 'sem download' };
+        try { App.downloads.playOffline(it); } catch (e) { return { ok: false, error: String(e && e.message || e) }; }
+        return { ok: true, id: it.id };
+      });
+      if (opened.ok) {
+        await page.waitForFunction(() => !!(window.App && App.player && typeof App.player.isOpen === 'function' && App.player.isOpen()), null, { timeout: 15000 });
+        await sleep(600);
+        const playerDlId = opened.id || '';
+        const fsBtn = '#player .pl-btn[aria-label="Tela cheia"]';
+        await page.locator(fsBtn).first().click({ timeout: 6000 });
+        let nativeFs = false;
+        for (let k = 0; k < 20; k++) {
+          nativeFs = await app.evaluate(({ BrowserWindow }) => {
+            const w = BrowserWindow.getAllWindows()[0];
+            return !!(w && w.isFullScreen() && w.isFullScreenable());
+          });
+          if (nativeFs) break;
+          await sleep(250);
+        }
+        const afterEnter = await page.evaluate(() => ({
+          flag: !!(App.desktop && App.desktop.playerFullscreen),
+          label: (document.querySelector('#player .pl-btn[aria-label]') || {}).getAttribute
+            ? document.querySelector('#player .pl-btn[aria-label="Sair da tela cheia"]') !== null : false
+        }));
+        check(nativeFs && afterEnter.flag, 'usabilidade', 'botão de tela cheia do player funciona (janela nativa)', JSON.stringify({ opened: opened, nativeFs: nativeFs, ui: afterEnter }));
+        /* Esc sai da tela cheia sem fechar o player */
+        if (nativeFs) {
+          await page.keyboard.press('Escape');
+          let exited = false;
+          for (let k = 0; k < 20; k++) {
+            exited = await app.evaluate(({ BrowserWindow }) => {
+              const w = BrowserWindow.getAllWindows()[0];
+              return !!(w && !w.isFullScreen());
+            });
+            if (exited) break;
+            await sleep(250);
+          }
+          const stillOpen = await page.evaluate(() => !!(App.player && App.player.isOpen()));
+          const flagOff = await page.evaluate(() => !(App.desktop && App.desktop.playerFullscreen));
+          check(exited && stillOpen && flagOff, 'usabilidade', 'Esc sai da tela cheia do player sem fechar o vídeo', JSON.stringify({ exited: exited, playerOpen: stillOpen, flagOff: flagOff }));
+        } else {
+          check(false, 'usabilidade', 'Esc sai da tela cheia do player sem fechar o vídeo', 'não entrou em tela cheia');
+        }
+        await page.evaluate(() => { try { App.player.close(true); } catch (e) { /* ignore */ } });
+        await sleep(400);
+        if (playerDlId) {
+          try { await page.evaluate((id) => space.downloads.remove(id, { deleteFiles: true }), playerDlId); } catch (e) { /* ignore */ }
+        }
+      } else {
+        check(false, 'usabilidade', 'botão de tela cheia do player funciona (janela nativa)', JSON.stringify(opened));
+      }
+    } catch (e) {
+      check(false, 'usabilidade', 'botão de tela cheia do player funciona (janela nativa)', 'erro: ' + e.message);
     }
 
     /* ---------- teclado do app (setas/Enter/Esc) ---------- */

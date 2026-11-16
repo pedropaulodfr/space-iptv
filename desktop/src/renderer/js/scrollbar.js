@@ -15,7 +15,7 @@
   var App = g.App;
   if (!App || !App.isDesktop) return;
 
-  var THUMB_MIN = 32;
+  var THUMB_MIN = 40;
   var attached = 0;
   var activeDrag = null;
 
@@ -78,6 +78,8 @@
         bar.classList.remove('on');
         thumb.setAttribute('aria-hidden', 'true');
         thumb.setAttribute('tabindex', '-1');
+        thumb.style.height = '';
+        thumb.style.top = '';
         return;
       }
       bar.classList.add('on');
@@ -110,17 +112,33 @@
         if (vl.has) vl.mark(vl.cellOf(i), true);
       }
     }
+    /* Reafirma o scrollTop depois que o VList recria linhas: o navegador pode
+       "ajustar" a posição ao trocar o DOM virtualizado (salto de ~1 linha). */
+    var settleWant = 0, settleTries = 0, settleTimer = 0;
+    function settleScroll(target) {
+      var max = Math.max(0, root.scrollHeight - root.clientHeight);
+      settleWant = Math.max(0, Math.min(max, target));
+      settleTries = 0;
+      root.scrollTop = settleWant;
+      clearTimeout(settleTimer);
+      function fix() {
+        if (Math.abs(root.scrollTop - settleWant) > 1) root.scrollTop = settleWant;
+        settleTries++;
+        if (settleTries < 30) settleTimer = setTimeout(fix, 16);  /* ~0,5 s */
+      }
+      fix();
+      return settleWant;
+    }
     function scrollToRatio(ratio) {
       var sh = root.scrollHeight, ch = root.clientHeight;
-      root.scrollTop = Math.max(0, Math.min(sh - ch, Math.round(ratio * (sh - ch))));
+      settleScroll(Math.round(ratio * Math.max(0, sh - ch)));
       syncIdx();
       rerender();
     }
     function scrollByRows(rows) {
       var rowH = (vl && vl.rowH) || 80;
       var sh = root.scrollHeight, ch = root.clientHeight;
-      var target = Math.max(0, Math.min(sh - ch, root.scrollTop + rows * rowH));
-      root.scrollTop = target;
+      settleScroll(Math.max(0, Math.min(sh - ch, root.scrollTop + rows * rowH)));
       syncIdx();
       rerender();
     }
@@ -151,12 +169,14 @@
       e.stopPropagation();
     }, true);
 
-    /* clique na trilha = rolar uma "página" proporcional ao ponto clicado */
+    /* clique na trilha: posição do clique proporcional ao espaço do polegar */
     bar.addEventListener('pointerdown', function (e) {
       if (e.target !== bar) return;
       var rect = bar.getBoundingClientRect();
-      var frac = (e.clientY - rect.top) / Math.max(1, rect.height);
-      scrollToRatio(Math.max(0, Math.min(1, frac)));
+      var thumbH = parseFloat(thumb.style.height) || THUMB_MIN;
+      var travel = Math.max(1, rect.height - thumbH);
+      var ratio = (e.clientY - rect.top - thumbH / 2) / travel;
+      scrollToRatio(Math.max(0, Math.min(1, ratio)));
       e.preventDefault();
       e.stopPropagation();
     }, true);

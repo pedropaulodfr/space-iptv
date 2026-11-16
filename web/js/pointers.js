@@ -36,6 +36,9 @@
     if (!el) return null;
     if (el.nodeType !== 1) el = el.parentElement;
     if (!inside(sc, el)) return null;
+    /* a barra de rolagem é um controle próprio: o ponteiro sobre ela nunca
+       deve "focar" o card que está embaixo (isso causava salto de scroll). */
+    if (el.closest && el.closest('.vl-scroll')) return null;
 
     var n, cell, row, root, inst, col, idx, hcard, sec, hr, ni, navs;
 
