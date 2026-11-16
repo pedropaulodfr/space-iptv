@@ -124,7 +124,7 @@
       function fix() {
         if (Math.abs(root.scrollTop - settleWant) > 1) root.scrollTop = settleWant;
         settleTries++;
-        if (settleTries < 30) settleTimer = setTimeout(fix, 16);  /* ~0,5 s */
+        if (settleTries < 90) settleTimer = setTimeout(fix, 16);  /* ~1,4 s */
       }
       fix();
       return settleWant;
@@ -183,7 +183,13 @@
     /* a ponte de ponteiro não deve tratar a barra como card/lista */
     bar.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); }, true);
 
-    root.addEventListener('scroll', layout, { passive: true });
+    root.addEventListener('scroll', function () {
+      /* se o navegador ajustar o scroll sozinho após recriar linhas, desfaz */
+      if (settleTries > 0 && settleTries < 90 && Math.abs(root.scrollTop - settleWant) > 1) {
+        root.scrollTop = settleWant;
+      }
+      layout();
+    }, { passive: true });
     if (typeof g.ResizeObserver === 'function') {
       try { new g.ResizeObserver(layout).observe(root); } catch (err) { /* ignore */ }
     }

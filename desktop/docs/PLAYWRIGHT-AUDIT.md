@@ -1,15 +1,15 @@
 # Space IPTV Desktop — auditoria Playwright (visual, usabilidade e acessibilidade)
 
-Gerado por `node scripts/audit-playwright.js` em 2026-11-16T21:03:56.936Z.
+Gerado por `node scripts/audit-playwright.js` em 2026-11-16T21:44:42.299Z.
 
 Ambiente: Windows 11 x64 · Electron 40.6.0 · Playwright (playwright-core) via `_electron` · backend de teste `http://127.0.0.1:8789`.
 
-Resumo: **28/28 verificações PASS**.
+Resumo: **29/29 verificações PASS**.
 
 | Área | PASS | FAIL |
 |---|---|---|
 | login | 1 | 0 |
-| usabilidade | 10 | 0 |
+| usabilidade | 11 | 0 |
 | visual | 7 | 0 |
 | acessibilidade | 10 | 0 |
 
@@ -23,6 +23,7 @@ Resumo: **28/28 verificações PASS**.
 | PASS | visual | layout compacto (margem ~8px de projeto) | `{"left":5.691666603088379,"top":5.691666603088379,"right":1360.3083658218384,"bottom":51.22499942779541}` |
 | PASS | visual | conteúdo vai até o fim da janela | `hints bottom=762 / 768` |
 | PASS | visual | sem rolagem horizontal da página | `1366 <= 1366` |
+| PASS | usabilidade | hover na Home não rola a tela sozinha | `{"before":"translate3d(0px, 0px, 0px)","after":{"transform":"translate3d(0px, 0px, 0px)","rowTransform":"translate3d(0px, 0px, 0px)","scrollY":0},"pontos":3}` |
 | PASS | acessibilidade | alvos de clique do HUD/menu com >= 44px | `8 medidos` |
 | PASS | acessibilidade | contraste de texto >= 4.5:1 nas amostras | `[{"key":"hints","ratio":7.32,"fontSize":"15px","color":"rgba(245, 247, 255, 0.62)"},{"key":"caption","ratio":7.32,"fontSize":"15px","color":"rgba(245, 247, 255, 0.62)"},{"key":"badge","ratio":18.79,"fontSize":"14px","color":"rgb(245, 247, 2` |
 | PASS | usabilidade | barra de rolagem visível na grade | `{"scrollHeight":5040,"clientHeight":963}` |
@@ -34,15 +35,15 @@ Resumo: **28/28 verificações PASS**.
 | PASS | acessibilidade | contraste do polegar >= 3:1 (componente de UI) | `ratio=7.32 bg=rgba(245, 247, 255, 0.62)` |
 | PASS | usabilidade | barra acessível mesmo com o mouse sobre o último card | `hit=vl-scrollthumb` |
 | PASS | usabilidade | clique na trilha rola a grade | `0 -> 4077` |
-| PASS | usabilidade | clique na trilha cai na posição certa (~35%) | `ratio=0.308` |
-| PASS | usabilidade | arrastar o polegar rola a grade | `1256 -> 591 armed={"armed":true,"cls":"vl-scroll on drag"}` |
+| PASS | usabilidade | clique na trilha cai na posição certa (~35%) | `ratio=0.35` |
+| PASS | usabilidade | arrastar o polegar rola a grade | `1427 -> 591 armed={"armed":true,"cls":"vl-scroll on drag"}` |
 | PASS | acessibilidade | barra expõe aria-valuenow/valuetext | `{"top":591,"value":"591","text":"14% da lista"}` |
 | PASS | acessibilidade | barra navegável por teclado (PageDown/Home reais) | `{"focused":true,"before":591,"afterPage":1011,"afterHome":0}` |
 | PASS | acessibilidade | árvore de acessibilidade tem scrollbar nomeado | `name=Rolar a lista props=focusable=true,focused=true,settable=true,orientation=vertical,valuemin=0,valuemax=4077,valuetext=0% da lista,controls=vl-list-3` |
 | PASS | usabilidade | tela Baixados mostra os downloads (sem skeleton eterno) | `{"dlScreen":{"screens":1,"loading":false,"cls":"dl-screen","rows":1,"skeletonVisible":false,"skelDisplay":"none","listDisplay":"block","summary":"1 item • 96,0 KB","empty":"Carregando downloads...","text":"BA\nBaixados Auditoria\nConcluído\` |
-| PASS | usabilidade | botão de tela cheia do player funciona (janela nativa) | `{"opened":{"ok":true,"id":"22001e48-5c10-45cd-a4f1-5525d31580b6"},"nativeFs":true,"ui":{"flag":true,"label":true}}` |
+| PASS | usabilidade | botão de tela cheia do player funciona (janela nativa) | `{"opened":{"ok":true,"id":"117d50d7-c5a3-42a3-ae0a-c4ec7dcbc543"},"nativeFs":true,"ui":{"flag":true,"label":true}}` |
 | PASS | usabilidade | Esc sai da tela cheia do player sem fechar o vídeo | `{"exited":true,"playerOpen":true,"flagOff":true}` |
-| PASS | acessibilidade | foco visível ao navegar por teclado (setas) | `{"cls":"card poster focused","border":"rgba(75, 139, 255, 0.906)","glow":true,"w":154.5716094970703,"h":255.04312133789062}` |
+| PASS | acessibilidade | foco visível ao navegar por teclado (setas) | `{"cls":"card poster focused","border":"rgba(89, 147, 255, 0.914)","glow":true,"w":154.65103149414062,"h":255.17417907714844}` |
 | PASS | acessibilidade | prefers-reduced-motion desliga animações decorativas | `{"duration":"0s","iteration":"1"}` |
 | PASS | acessibilidade | botões do Guia com >= 44px renderizados | `[{"w":83.5518798828125,"h":45.53333282470703},{"w":103.8394775390625,"h":45.53333282470703}]` |
 

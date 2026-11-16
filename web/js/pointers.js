@@ -154,6 +154,11 @@
       return d.inst.has;
     }
     if (d.kind === 'hrow') {
+      /* Home: as faixas são empilhadas verticalmente e o foco de outra faixa
+         dispararia walkTo()/scrollTo() — ou seja, a tela rolaria sozinha ao
+         mover o mouse. Hover só atua na faixa que já está em foco. */
+      var homeRow = d.card && d.card.closest ? d.card.closest('.home') : null;
+      if (homeRow && !d.inst.has) return false;
       if (!d.inst.has && ensureSomeFocus(sc)) walkTo(function () { return d.inst.has; }, d.card, sc);
       if (d.inst.has) d.inst.setIdx(d.idx, true);
       return d.inst.has;
@@ -272,6 +277,10 @@
     if (d.kind === 'vlist' || d.kind === 'hrow') {
       if (!hoverVisible(d)) { lastHoverEl = d.cell || d.card || lastHoverEl; return; }
       if (d.kind === 'vlist' && focusWouldScroll(d.inst, d.idx)) { lastHoverEl = d.cell || lastHoverEl; return; }
+      if (d.kind === 'hrow' && d.card && d.card.closest && d.card.closest('.home') && !d.inst.has) {
+        lastHoverEl = d.card;
+        return;   /* Home: hover em faixa não focada NUNCA rola a tela */
+      }
       applyFocus(d);
       afterProgrammatic();
       return;

@@ -221,6 +221,27 @@ async function main() {
     check(layout.hintsBottom <= layout.ih + 1 && layout.hintsBottom > layout.ih - 40, 'visual', 'conteúdo vai até o fim da janela', 'hints bottom=' + Math.round(layout.hintsBottom) + ' / ' + layout.ih);
     check(layout.scrollWidth <= layout.iw + 1, 'visual', 'sem rolagem horizontal da página', layout.scrollWidth + ' <= ' + layout.iw);
 
+    /* hover na Home: mover o mouse pelas faixas NÃO pode rolar a tela vertical */
+    const homePts = await page.evaluate(() => {
+      const t = document.querySelector('#screen .home-track');
+      const rows = Array.from(document.querySelectorAll('#screen .home .hrow'));
+      const pts = [];
+      for (const row of rows) {
+        const card = row.querySelector('.hr-card');
+        if (!card) continue;
+        const r = card.getBoundingClientRect();
+        if (r.top >= 0 && r.top < innerHeight && r.width > 0) pts.push({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+      }
+      return { transform: t ? t.style.transform : '', pts: pts };
+    });
+    for (const pt of homePts.pts) { await page.mouse.move(pt.x, pt.y); await sleep(90); }
+    const homeAfter = await page.evaluate(() => {
+      const t = document.querySelector('#screen .home-track');
+      const row = document.querySelector('#screen .home .hrow .hr-track');
+      return { transform: t ? t.style.transform : '', rowTransform: row ? row.style.transform : '', scrollY: window.scrollY };
+    });
+    check(homeAfter.transform === homePts.transform && homeAfter.scrollY === 0, 'usabilidade', 'hover na Home não rola a tela sozinha', JSON.stringify({ before: homePts.transform, after: homeAfter, pontos: homePts.pts.length }));
+
     /* ---------- alvos de clique (44px renderizados) ---------- */
     const targets = await metrics(() => {
       const out = [];
