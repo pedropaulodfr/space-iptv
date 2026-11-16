@@ -1,0 +1,143 @@
+@import url("../web/css/login.css");
+
+/* =====================================================================
+   Space IPTV Desktop — camada desktop do LOGIN.
+
+   A tela é a MESMA da web: `../web/css/login.css` (copiada pelo build para
+   `dist/renderer/web/css/login.css`) define layout, card de 500 px, campos,
+   estados de erro e o rodapé. Aqui só entra o que o desktop exige e que o
+   navegador não precisa: cursor sempre visível, alvos de 44 px nos
+   controles pequenos, anel de foco de 2 px, contraste do placeholder,
+   scrollbar discreta e nenhuma barra horizontal.
+
+   Não há tokens, fontes ou paleta novas: tudo vem de
+   tv/css/design-system.css, que o login.html carrega antes deste arquivo.
+   ===================================================================== */
+
+:root { color-scheme: dark; }
+
+html,
+body.login-page {
+  background-color: var(--spaceBlack);
+  overflow-x: hidden;
+}
+
+body.login-page { cursor: default; }
+
+/* seleção de texto nas cores do produto (a web deixa no padrão do SO) */
+::selection { background: rgba(66, 133, 255, .42); color: var(--softWhite); }
+
+/* Scrollbar discreta quando a janela for baixa (o card continua centrado
+   pelo `margin:auto` do CSS da web). */
+html,
+body.login-page {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245, 247, 255, .22) transparent;
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: rgba(245, 247, 255, .18);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(245, 247, 255, .32); background-clip: content-box; }
+
+/* ---------------------------------------------------------------------
+   Foco visível (contrato: 2 px sólido em --electricBlue, offset 2 px)
+   O botão "Entrar" mantém o anel branco de 3 px do CSS da web de propósito:
+   o anel azul sobre o gradiente azul do próprio botão teria contraste
+   baixo; o branco garante a visibilidade. Medido em
+   desktop/docs/UI-UX-AUDIT.md.
+   --------------------------------------------------------------------- */
+:focus-visible {
+  outline: 2px solid var(--electricBlue);
+  outline-offset: 2px;
+}
+
+.login-eye:focus-visible,
+.login-link:focus-visible,
+.login-privacy summary:focus-visible {
+  outline: 2px solid var(--electricBlue);
+  outline-offset: 2px;
+}
+
+/* A borda azul + anel do campo continuam vindo do CSS da web (foco visível
+   sem outline duplicado). */
+.login-field input:focus-visible { outline: none; }
+
+/* ---------------------------------------------------------------------
+   Alvos ≥ 44 px (o olho já tem 44x44 e o Entrar 48 px no CSS da web)
+   --------------------------------------------------------------------- */
+.login-eye {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.login-submit { min-height: 48px; }
+
+/* links/botões de texto tinham ~30 px de altura: viram alvos de 44 px
+   mantendo a aparência de link (sem fundo permanente). */
+.login-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 14px;
+}
+
+/* o resumo "Política de privacidade" tinha 32 px: 44 px no desktop. */
+.login-privacy summary {
+  min-height: 44px;
+}
+
+/* ---------------------------------------------------------------------
+   Aviso de API indisponível criado por js/login-desktop.js
+   (#login-conn-warning, classe .login-note.login-conn): usa o amarelo de
+   atenção do design system para não parecer texto secundário.
+   --------------------------------------------------------------------- */
+#login-conn-warning {
+  margin: 0 0 12px;
+  color: #ffcf6b;
+  font-size: 13.5px;
+  line-height: 20px;
+}
+
+/* ---------------------------------------------------------------------
+   Contraste
+   O placeholder do CSS da web usa softWhite a 38% sobre o campo
+   (#091025) = 3,39:1, abaixo de 4,5:1. No desktop sobe para o mesmo 62%
+   de --muted: 7,16:1. O texto digitado não muda.
+   --------------------------------------------------------------------- */
+.login-field input::placeholder {
+  color: rgba(245, 247, 255, .62);
+}
+
+/* ---------------------------------------------------------------------
+   Rodapé/versão: centralizado na mesma coluna de 500 px do card, com
+   quebra de linha permitida (a versão vem de js/login-desktop.js).
+   --------------------------------------------------------------------- */
+.login-footer {
+  width: 100%;
+  max-width: 500px;
+  margin: 14px auto 0;
+}
+
+#login-version {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Barra de rolagem nunca horizontal, mesmo com e-mail longo no card. */
+.login-sub { overflow-wrap: anywhere; }
+.login-note { overflow-wrap: anywhere; }
+.login-error,
+.login-status { overflow-wrap: anywhere; }
+
+/* Janela muito baixa (ex.: 1024x640): compacta um pouco o topo do card em
+   vez de esconder o botão Entrar. Continua tudo visível/customizável. */
+@media (max-height: 680px) {
+  .login-card { padding-top: 22px; padding-bottom: 20px; }
+  .login-sub { margin-bottom: 14px; }
+}

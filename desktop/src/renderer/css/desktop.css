@@ -1,0 +1,634 @@
+/* =====================================================================
+   Space IPTV Desktop — camada desktop (carregada DEPOIS de
+   tv/css/design-system.css, tv/css/app.css e web/css/web.css).
+
+   Regra desta camada: NÃO cria identidade, NÃO troca tokens, fontes ou
+   paleta. Só resolve o que é específico da janela Windows (palco 1080p
+   escalado, cursor de desktop, foco de teclado, estados novos e
+   utilidades). Cada regra tem a razão ao lado; a auditoria com medições
+   está em desktop/docs/UI-UX-AUDIT.md.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   0. Janela e palco
+   - fundo --spaceBlack antes do primeiro paint (sem flash branco);
+   - nenhuma barra de rolagem na página (o palco é escalado pelo shell);
+   - color-scheme escuro evita scrollbar/controle nativo clarinho.
+   --------------------------------------------------------------------- */
+:root { color-scheme: dark; }
+
+html,
+body {
+  background: var(--spaceBlack);
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+#stage {
+  background: var(--spaceBlack);
+  overflow: hidden;
+}
+
+/* O app é navegado por foco (teclado/mouse), não por seleção de texto:
+   arrastar o mouse sobre cards não deve pintar seleção azul. Campos,
+   modais e a senha temporária continuam selecionáveis/copiáveis. */
+#stage {
+  -webkit-user-select: none;
+  user-select: none;
+}
+#stage input,
+#stage textarea,
+#stage .msg,
+#stage .temp-pass { -webkit-user-select: text; user-select: text; }
+#stage .temp-pass { -webkit-user-select: all; user-select: all; }
+
+/* Aviso de janela pequena: quem decide exibir/ocultar é web/js/shell.js
+   (hidden abaixo de 1024x576, o mínimo real da janela). Aqui só ajustamos a
+   posição quando ele aparece — sem sobrescrever o atributo `hidden`. */
+@media (max-width: 1279px), (max-height: 719px) {
+  #stage-warn { bottom: 18px; }
+}
+
+/* ---------------------------------------------------------------------
+   1. Cursor de desktop
+   web/js/pointers.js esconde o cursor após 2,5 s (comportamento de TV).
+   No desktop o cursor fica SEMPRE visível — desktop não é controle remoto.
+   Reativamos o ponteiro nos alvos clicáveis (os divs clicáveis também).
+   --------------------------------------------------------------------- */
+html,
+body { cursor: default; }
+
+#hud-fs,
+.btn,
+.nav-item,
+.cat-item,
+.card,
+.chan,
+.chip,
+.list-row,
+.pl-chan,
+.pin-key,
+.badge.action,
+[role="button"],
+a,
+button,
+label[for],
+input[type="file"],
+input[type="file"]::file-selector-button,
+input[type="checkbox"],
+input[type="radio"],
+select { cursor: pointer; }
+
+.field input,
+.field textarea,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="number"],
+textarea { cursor: text; }
+
+input[disabled],
+button[disabled] { cursor: not-allowed; }
+
+/* desfaz o cursor:none global da ponte de ponteiro (só existe enquanto a
+   classe hide-cursor estiver no <html>; no desktop ela nunca deve ocultar).
+   Os seletores repetem #stage para vencer a especificidade de `#stage *`. */
+html.hide-cursor,
+html.hide-cursor body,
+html.hide-cursor #stage * { cursor: auto !important; }
+html.hide-cursor #stage #hud-fs,
+html.hide-cursor #stage .btn,
+html.hide-cursor #stage .nav-item,
+html.hide-cursor #stage .cat-item,
+html.hide-cursor #stage .card,
+html.hide-cursor #stage .chan,
+html.hide-cursor #stage .chip,
+html.hide-cursor #stage .list-row,
+html.hide-cursor #stage .pl-chan,
+html.hide-cursor #stage .pin-key,
+html.hide-cursor #stage .badge.action,
+html.hide-cursor #stage [role="button"],
+html.hide-cursor #stage a,
+html.hide-cursor #stage button { cursor: pointer !important; }
+html.hide-cursor #stage input,
+html.hide-cursor #stage textarea { cursor: text !important; }
+
+/* ---------------------------------------------------------------------
+   2. HUD (barra superior)
+   Com os badges novos (#hud-downloads, #hud-offline) o HUD pode estourar
+   1824 px de palco. Os textos longos truncam e os badges encolhem antes
+   de empurrar o relógio/botão de tela cheia para fora.
+   --------------------------------------------------------------------- */
+.hud-info {
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+#hud .badge,
+#hud .hud-caption {
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#hud-list { max-width: 280px; }
+#hud-user { max-width: 200px; }
+#hud-proxy { max-width: 140px; }
+
+/* O badge de downloads aceita rótulo curto ("Baixando 2 · 45%") e fica com
+   overflow visível de propósito: o ::after abaixo amplia a área clicável
+   para 44 px sem inchar o pill. Rótulos longos devem ser encurtados pelo
+   próprio módulo de downloads (ver UI-UX-NOTES).
+   `#hud #hud-downloads` vence o overflow:hidden do agrupamento acima. */
+#hud #hud-downloads { max-width: 260px; overflow: visible; }
+
+/* Alvo de 44 px para o badge de downloads quando ele for clicável (atalho
+   para a tela Baixados). O ::after amplia a área de clique sem inchar o
+   pill de 22 px dentro dos 72 px do HUD. */
+#hud-downloads { position: relative; }
+#hud-downloads.action,
+#hud-downloads[role="button"] { cursor: pointer; }
+#hud-downloads::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -11px;
+  bottom: -11px;
+}
+
+/* Botão de tela cheia: 44x44 (web.css já garante) — reforça o mínimo e o
+   anel de foco com o offset do design system. */
+#hud-fs {
+  min-width: 44px;
+  min-height: 44px;
+  flex: none;
+}
+#hud-fs:focus-visible {
+  outline: 2px solid var(--electricBlue);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------
+   3. Foco visível global (contrato do design system)
+   Mantém TODO o foco já desenhado por tv/css e web/css (.focused em cards,
+   linhas, categorias, botões e pin) e acrescenta o anel de :focus-visible
+   em qualquer elemento nativo focável por Tab.
+   --------------------------------------------------------------------- */
+:focus-visible {
+  outline: 2px solid var(--electricBlue);
+  outline-offset: 2px;
+}
+
+/* Campos: o anel do desktop é a borda+glow do próprio .field (o contorno
+   do input fica escondido para não duplicar), como na web. */
+.field input:focus-visible,
+.field textarea:focus-visible { outline: none; }
+.field:focus-within {
+  border-color: var(--glassFocusBorder);
+  box-shadow: var(--glow-blue);
+}
+
+/* Linhas e itens que recebem foco por índice: o estado .focused já desenha
+   borda/glow; quando o elemento é focável de verdade (Tab), o anel entra. */
+.nav-item:focus-visible,
+.cat-item:focus-visible,
+.list-row:focus-visible,
+.chan:focus-visible,
+.card:focus-visible,
+.chip:focus-visible { outline-offset: 3px; }
+
+/* ---------------------------------------------------------------------
+   4. Estados de tela (usados por downloads, EPG, configurações e login)
+   Classes documentadas em desktop/docs/UI-UX-NOTES.md.
+   --------------------------------------------------------------------- */
+
+/* 4.1 vazio */
+.desktop-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 280px;
+  padding: 48px 32px;
+  border: 1px dashed var(--glassBorder);
+  border-radius: 20px;
+  background: rgba(5, 7, 17, .32);
+  color: var(--muted);
+  text-align: center;
+}
+
+.desktop-empty .de-ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--glassBorder);
+  background: rgba(66, 133, 255, .12);
+  color: var(--electricBlue);
+}
+
+.desktop-empty .de-ico svg {
+  width: 32px;
+  height: 32px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.desktop-empty .de-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 28px;
+  letter-spacing: .02em;
+  color: var(--softWhite);
+}
+
+.desktop-empty .de-text {
+  max-width: 640px;
+  font-size: 16px;
+  line-height: 24px;
+  white-space: pre-line;
+}
+
+.desktop-empty .de-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.desktop-empty.compact {
+  min-height: 0;
+  padding: 24px;
+  gap: 8px;
+}
+
+/* 4.2 reserva de espaço (sem layout shift) — usa o @keyframes skel de
+   tv/css/app.css; as dimensões vêm do conteúdo final (nunca 0 de altura) */
+.desktop-skeleton {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--glassBorder);
+  border-radius: 16px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, .04), rgba(255, 255, 255, .1), rgba(255, 255, 255, .04));
+  background-size: 200% 100%;
+  animation: skel 1.4s linear infinite;
+  min-height: 24px;
+}
+
+.desktop-skeleton.line {
+  height: 16px;
+  min-height: 16px;
+  border: none;
+  border-radius: 8px;
+}
+
+.desktop-skeleton.line.title { height: 22px; }
+.desktop-skeleton.line.w80 { width: 80%; }
+.desktop-skeleton.line.w60 { width: 60%; }
+.desktop-skeleton.line.w40 { width: 40%; }
+.desktop-skeleton.row { height: 72px; }
+.desktop-skeleton.poster { aspect-ratio: 2 / 3; height: auto; min-height: 0; }
+.desktop-skeleton.block { height: 220px; }
+
+.desktop-skeleton-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 4.3 erro junto do campo (aria-invalid + mensagem abaixo do input) */
+.desktop-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 22px;
+  margin-top: 8px;
+  color: var(--danger);
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.desktop-error:empty { display: none; }
+
+.desktop-error svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin-top: 2px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.field.invalid,
+.field[aria-invalid="true"] {
+  border-color: rgba(255, 93, 115, .7);
+}
+
+.field.invalid:focus-within,
+.field[aria-invalid="true"]:focus-within {
+  box-shadow: 0 0 0 3px rgba(255, 93, 115, .22);
+}
+
+input[aria-invalid="true"],
+textarea[aria-invalid="true"] { border-color: rgba(255, 93, 115, .7); }
+
+/* 4.4 indisponível (sem rede / API fora / modo offline sem cache) */
+.desktop-unavailable {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 240px;
+  padding: 40px 32px;
+  border: 1px solid rgba(255, 207, 107, .38);
+  border-radius: 20px;
+  background: rgba(255, 207, 107, .06);
+  color: var(--muted);
+  text-align: center;
+}
+
+.desktop-unavailable .du-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 28px;
+  color: #ffcf6b;
+}
+
+.desktop-unavailable .du-text {
+  max-width: 640px;
+  font-size: 16px;
+  line-height: 24px;
+  white-space: pre-line;
+}
+
+.desktop-unavailable .du-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+/* 4.5 dica de teclado (kbd) */
+.desktop-kbd,
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--glassBorder);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .08);
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .35);
+  color: var(--softWhite);
+  font: 600 12px/1 var(--font-body);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+#hints .desktop-kbd,
+#hints kbd { margin-right: 6px; }
+
+/* ---------------------------------------------------------------------
+   5. Ajustes de componentes no desktop
+   --------------------------------------------------------------------- */
+
+/* Configurações: o desktop ganha ações extras (pasta de downloads, EPG,
+   autostart, bandeja, Sobre) e a coluna não cabe em 856 px. Rola dentro do
+   próprio painel (o wheel nativo funciona; a ponte só intercepta vlist/hrow). */
+.settings .actions-pane {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding-right: 12px;
+  scroll-behavior: smooth;
+}
+
+.settings .actions-pane .btn { flex: none; }
+
+/* Configurações: rótulos longos (ex.: "Conta: e-mail…") quebram em duas linhas
+   em vez de vazar da coluna. Mantém a altura mínima (alvo ≥44 px) e o visual
+   do design system; os interruptores (`.btn.toggle`) continuam com a altura
+   própria deles. */
+.settings:not(.admin) .actions-pane .btn:not(.toggle) {
+  height: auto;
+  min-height: 56px;
+  white-space: normal;
+  line-height: 22px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+/* Arrastar um .m3u/.m3u8 sobre o modal de upload (js/upload-desktop.js marca
+   `.drop-target`): destaca o alvo com as cores de foco do design system. */
+.modal.drop-target {
+  border-color: var(--glassFocusBorder);
+  box-shadow: var(--glow-blue), inset 0 0 0 2px var(--glassFocusBorder);
+}
+
+/* Scrollbars discretas (o desktop usa roda; a barra é só referência). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245, 247, 255, .22) transparent;
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: rgba(245, 247, 255, .18);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(245, 247, 255, .32); background-clip: content-box; }
+
+/* Área rolável padronizada para telas novas (Baixados, Guia, listas longas). */
+.desktop-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+/* Upload por arquivo (web/css/web.css): o botão nativo fica com 34 px;
+   no desktop todo alvo precisa dos 44 px do contrato. */
+.upload-field input[type="file"]::file-selector-button {
+  min-height: 44px;
+  padding: 0 16px;
+}
+
+/* Contraste: as iniciais de pôster/canal usam softWhite a 35% (2,90:1 e
+   3,01:1 medidos). No desktop sobem para 62% (6,01:1 e 7,27:1). */
+.poster .ph,
+.chan .logo .ph { color: rgba(245, 247, 255, .62); }
+
+/* Contraste não-textual: o ponto "desligado" do PIN usava borda a 25%
+   (2,19:1). A 50% fica em 5,29:1 (WCAG 1.4.11 pede 3:1). */
+.pin-dot { border-color: rgba(245, 247, 255, .5); }
+
+/* Hints do rodapé: não podem quebrar linha nem empurrar o layout. */
+#hints {
+  flex-wrap: nowrap;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------
+   6. Legibilidade em janelas pequenas
+   O palco é fixo em 1920x1080 e o shell aplica min(vw/1920, vh/1080).
+   Em 1280x720 (padrão do config) o fator é 0,667: os textos de 11–13 px
+   do design system renderizariam a ~7–9 px de janela. Compensação: só os
+   textos MICRO sobem (nunca títulos/corpo, que já são 16 px+ e têm
+   altura fixa nas listas virtualizadas — mudá-los quebraria o VList).
+   Medições e a decisão: desktop/docs/UI-UX-AUDIT.md §7.
+   --------------------------------------------------------------------- */
+@media (max-width: 1500px) {
+  .hud-caption { font-size: 14px; line-height: 18px; }
+  #hints { font-size: 14px; line-height: 18px; }
+  .badge { font-size: 13px; line-height: 17px; padding: 3px 10px; }
+  .tag { font-size: 13px; }
+  .poster .psub,
+  .chan .sb { font-size: 15px; line-height: 18px; }
+  .list-row .s { font-size: 15px; line-height: 20px; }
+  .ep .du { font-size: 16px; }
+  .pl-keys { font-size: 16px; }
+}
+
+@media (max-width: 1366px) {
+  .hud-caption { font-size: 15px; line-height: 19px; }
+  #hints { font-size: 15px; line-height: 19px; }
+  .badge { font-size: 14px; line-height: 18px; }
+  .poster .psub,
+  .chan .sb,
+  .list-row .s { font-size: 16px; line-height: 20px; }
+}
+
+/* 6.1 EPG (css/epg.css é carregado DEPOIS deste arquivo). O dono do módulo pode
+   corrigir no próprio CSS; aqui fica a rede de segurança para o texto micro do
+   guia não renderizar a 8 px em 1366×768. O seletor usa #stage para vencer a
+   ordem de carregamento sem mexer no arquivo do agente epg.
+   Aviso de erro da barra da TV ao vivo: --danger sobre o planeta dava 4,25:1;
+   o fundo escuro do pill garante 5,2:1 sem trocar a cor do token. */
+@media (max-width: 1500px) {
+  #stage .epg-line { font-size: 14px; }
+  #stage .guide-prog-title { font-size: 15px; line-height: 19px; }
+  #stage .guide-prog-time { font-size: 13px; line-height: 15px; }
+  #stage .guide-now-flag { font-size: 13px; }
+  #stage .guide-chanhead { font-size: 14px; }
+  #stage .guide-row-empty { font-size: 14px; }
+  #stage .guide-sub { font-size: 15px; line-height: 21px; }
+}
+
+@media (max-width: 1500px) {
+  #stage .epg-live-status.warn {
+    padding: 0 10px;
+    border-radius: 999px;
+    background: rgba(5, 7, 17, .72);
+  }
+}
+
+/* ---------------------------------------------------------------------
+   7. Menos movimento (respeita a preferência do Windows)
+   web.css já desliga planeta, pulso do card, skeleton, spinner e as
+   transições principais. Aqui entram os componentes que faltavam.
+   --------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .desktop-skeleton { animation: none; }
+
+  .nav-item,
+  .cat-item,
+  .list-row,
+  .chip,
+  .pl-chan,
+  .hdot,
+  .badge,
+  .tag,
+  .settings .actions-pane { transition: none; scroll-behavior: auto; }
+
+  .card.focused,
+  .btn.focused,
+  .nav-item.focused,
+  .cat-item.focused,
+  .list-row.focused,
+  .pin-key.focused,
+  .field.focused,
+  .chip.focused,
+  .pl-chan.focused { transform: none; }
+
+  .card:active,
+  .btn:active,
+  .nav-item:active,
+  .cat-item:active,
+  .list-row:active,
+  .pin-key:active,
+  .chip:active { transform: none; }
+}
+
+/* ---------------------------------------------------------------------
+   8. Utilitários desktop (ritmo 4/8 px + alvos 44 px)
+   Documentados em desktop/docs/UI-UX-NOTES.md; telas novas devem usar
+   estas classes em vez de valores soltos.
+   --------------------------------------------------------------------- */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* alvo mínimo do contrato (44x44), para botões-ícone e linhas clicáveis */
+.desktop-target {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.u-row { display: flex; align-items: center; gap: 8px; }
+.u-col { display: flex; flex-direction: column; gap: 8px; }
+.u-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+.u-grow { flex: 1 1 auto; min-width: 0; }
+.u-truncate { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.u-gap-4 { gap: 4px; }
+.u-gap-8 { gap: 8px; }
+.u-gap-12 { gap: 12px; }
+.u-gap-16 { gap: 16px; }
+
+.u-mt-4 { margin-top: 4px; }
+.u-mt-8 { margin-top: 8px; }
+.u-mt-12 { margin-top: 12px; }
+.u-mt-16 { margin-top: 16px; }
+.u-mt-24 { margin-top: 24px; }
+
+.u-mb-4 { margin-bottom: 4px; }
+.u-mb-8 { margin-bottom: 8px; }
+.u-mb-16 { margin-bottom: 16px; }
