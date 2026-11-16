@@ -163,7 +163,9 @@ space.registerMediaHosts(hosts: string[]): Promise<void>;
   - `--dev`: devtools + menu de desenvolvimento.
 - Env (testes/CI, precedem o config): `SPACE_API_ORIGIN`, `SPACE_DOWNLOADS_DIR`,
   `SPACE_CONFIG_FILE` (caminho do JSON de config; permite userData isolado), `SPACE_INTERNAL_PORT`
-  (`0` = automático/persistido), `SPACE_NO_AUTOSTART=1` (ignora login item).
+  (`0` = automático/persistido), `SPACE_NO_AUTOSTART=1` (ignora login item),
+  `SPACE_USER_DATA` (diretório de userData isolado para E2E; cookies+IndexedDB limpos),
+  `SPACE_RENDERER_DIR` (serve um renderer alternativo em testes).
 
 ## 3. Renderer — contratos de módulos
 
@@ -174,7 +176,8 @@ Ordem dos scripts em `src/renderer/index.html` (não alterar sem o lead):
 → 8. `js/settings-desktop.js` → 9. `js/bootstrap.js` → 10. `web/js/shell.js` (por último).
 
 O `login.html` carrega `web/js/login.js` (reaproveitado) e depois `js/login-desktop.js`
-(ajusta versão/estado offline; não reimplementa login).
+(ajusta versão/estado offline; não reimplementa login). O CSS do login é camada desktop em
+`css/login.css` (ui-ux), que faz `@import` do `web/css/login.css` copiado pelo build.
 
 ### 3.1 `js/desktop-config.js` (auth-desktop)
 

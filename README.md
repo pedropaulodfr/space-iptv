@@ -10,6 +10,7 @@ nenhuma lista, canal ou credencial: só reproduz o que o usuário cadastra.
 | [`celular/`](celular/) | **Celular Android** | projeto Gradle → **um APK** que também roda no projetor |
 | [`projetor/`](projetor/) | **Projetor / TV box** | documentação do modo projetor (HY300), capturas e como testar |
 | [`web/`](web/) | **Navegador (desktop)** | versão web: reaproveita `tv/js`, player HTML5/HLS/TS, servidor local e build estático |
+| [`desktop/`](desktop/) | **Windows 10/11 (desktop)** | app Electron com instalador NSIS, downloads offline e EPG — reusa `tv/js` e `web/js` |
 | [`tools/`](tools/) | ferramentas de desenvolvimento | servidor de streams de teste, bateria ponta a ponta, harness no navegador |
 | `dist/` | artefatos gerados (APK/WGT/build web) | **fora do controle de versão** — veja "Gerar os pacotes" |
 
@@ -71,10 +72,32 @@ node web/build.js           # dist/web/ para publicar como site estático (raiz 
 - Os mocks de desenvolvimento continuam em `tools/mock-server.js` (8080) e
   `tools/mock-streams.js` (8090).
 
+## Versão desktop (Windows)
+
+App instalável (`.exe`, NSIS, per-user) que **reaproveita o núcleo `tv/js` e os
+módulos do app web**: mesmo login, mesmas listas, mesmo visual. O admin fica só
+na web. Recursos próprios: downloads offline (MP4 com Range e HLS empacotado),
+EPG/Guia (XMLTV por M3U ou Xtream), importação pelo seletor nativo do Windows,
+bandeja, iniciar com o Windows (desligado por padrão) e `/api/admin/*` bloqueado
+no proxy interno.
+
+```powershell
+cd desktop
+npm install             # Electron 40.6 + electron-builder/updater
+npm run dist            # -> dist/desktop/SpaceIPTV-Setup-1.0.0.exe
+```
+
+- Requisitos, arquitetura, pastas de dados, testes e limitações: [`desktop/README.md`](desktop/README.md).
+- Build/assinatura/auto-update e checklist de release: [`desktop/RELEASE.md`](desktop/RELEASE.md).
+- Evidências de teste (inclui prova offline com a rede desligada e instalação/
+  desinstalação per-user): [`desktop/docs/TEST-REPORT.md`](desktop/docs/TEST-REPORT.md).
+
 ## Versões e documentação
 
 - **Web (navegador)**: [`web/README.md`](web/README.md) (como rodar, publicar, limitações e
   decisões) e [`web/NOTES.md`](web/NOTES.md) (reconhecimento técnico da integração).
+- **Desktop (Windows)**: [`desktop/README.md`](desktop/README.md),
+  [`desktop/RELEASE.md`](desktop/RELEASE.md) e [`desktop/docs/TEST-REPORT.md`](desktop/docs/TEST-REPORT.md).
 - **Android**: [`celular/README.md`](celular/README.md) (como compilar, assinar e testar) e
   [`ANDROID.md`](ANDROID.md) (arquitetura, decisões, histórico das versões).
 - **Projetor**: [`projetor/README.md`](projetor/README.md) — trilha lateral, setas/OK,
