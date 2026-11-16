@@ -77,9 +77,10 @@ node web/build.js           # dist/web/ para publicar como site estático (raiz 
 App instalável (`.exe`, NSIS, per-user) que **reaproveita o núcleo `tv/js` e os
 módulos do app web**: mesmo login, mesmas listas, mesmo visual. O admin fica só
 na web. Recursos próprios: downloads offline (MP4 com Range e HLS empacotado),
-EPG/Guia (XMLTV por M3U ou Xtream), importação pelo seletor nativo do Windows,
-bandeja, iniciar com o Windows (desligado por padrão) e `/api/admin/*` bloqueado
-no proxy interno.
+EPG/Guia (XMLTV por M3U ou Xtream, com fonte pública padrão EPGShare01 quando a
+lista não informa guia), importação pelo seletor nativo do Windows, bandeja,
+iniciar com o Windows (desligado por padrão), palco que preenche a janela e
+`/api/admin/*` bloqueado no proxy interno.
 
 ```powershell
 cd desktop

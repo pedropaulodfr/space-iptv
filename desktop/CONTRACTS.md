@@ -73,6 +73,7 @@ Arquivo `%APPDATA%\Space IPTV\config.json`, escrita atômica (`.tmp` + rename). 
   "internalPort": 0,
   "downloadsDir": "C:\\Users\\<user>\\Videos\\Space IPTV",
   "epgTtlHours": 24,
+  "epgUrl": "https://epgshare01.online/epgshare01/epg_ripper_BR1.xml.gz",
   "startWithWindows": false,
   "startMinimizedToTray": false,
   "minimizeToTrayOnClose": false,
@@ -240,7 +241,11 @@ Substitui `web/js/upload.js` com o **mesmo contrato** (`App.upload.open({record?
 
 - `App.epg = { load(list), refresh(list), now(channelName, tvgId), next(...), state(), open() }`.
 - Fonte: M3U `res.head['url-tvg']`/`['x-tvg-url']` (parser estendido pelo lead) **ou** Xtream
-  `server + /xmltv.php?username=&password=` (credenciais em memória; nunca logar).
+  `server + /xmltv.php?username=&password=` (credenciais em memória; nunca logar);
+  **fallback** `space.config.get().epgUrl` (fonte pública padrão EPGShare01 BR1, `''` = desligada;
+  Configurações → "Fonte de EPG padrão"). `state.sourceKind` = `list|xtream|default`.
+  Casamento por `tvg-id` inclui aliases (sufixo após `..`/`/`, ex.: `São.Paulo/SP..SBT.br` → `SBT.br`)
+  e fallback por nome normalizado.
 - Download pelo próprio servidor: `GET /_epg/source?url=` (mesma origem, sem CORS), streaming;
   gzip tratado pelo Chromium no fetch. Parsing incremental (sem carregar XMLTV inteiro de uma vez).
 - Match: `tvg-id` exato → fallback nome normalizado (`App.norm`, sem acento/espaço/pontuação).

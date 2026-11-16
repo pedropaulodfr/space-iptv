@@ -8,7 +8,7 @@ Electron **40.6.0** (o 45.x crasha nesta build do Windows — ver Observações 
 
 ## 1. Suíte automatizada (`cd desktop; npm test`)
 
-**Resultado: 163/163 testes verdes** (`node --test "test/**/*.test.js"`, 0 falhas).
+**Resultado: 175/175 testes verdes** (`node --test "test/**/*.test.js"`, 0 falhas).
 
 | Arquivo | Cobre |
 |---|---|
@@ -18,6 +18,7 @@ Electron **40.6.0** (o 45.x crasha nesta build do Windows — ver Observações 
 | `test/unit/media-proxy.test.js` | Range/206, rewrite de playlist, allowlist, sem cookies upstream, timeouts |
 | `test/unit/autostart.test.js` | login item per-user, padrão desligado, remoção ao desativar, `SPACE_NO_AUTOSTART` |
 | `test/unit/epg-parse.test.js` | XMLTV incremental: gzip, fusos (+0000/-0330/+0200), CDATA/entidades, dedupe, truncado, vazio/inválido |
+| `test/unit/epg-default.test.js` | fonte pública de EPG padrão no config, validação de URL, precedência M3U/Xtream/padrão/desligado, credenciais fora do estado/cache, allowlist |
 | `test/integration/server.test.js` | servidor interno: `/api/admin/*` **403 sem tocar no upstream**, reescrita Origin/Referer/Host, Cookie repassado, Set-Cookie sem Domain/Secure, 401/403/502/timeout, Host inválido 400, traversal, `/_hosts`, `/_epg/source`, `/media-proxy` |
 | `test/integration/media-epg.test.js` | EPG fim a ponta (`/_epg/source` gzip → parser → cache/TTL), MP4 idêntico e Range/206 |
 
@@ -38,21 +39,28 @@ Comando (runner via CDP, sem dependências; usa backend de teste local em
 node scripts/e2e-ui.js --electron <electron.exe> --shots --offline-proof
 ```
 
-**Resultado: 23/23 verificações PASS** com `--offline-proof` (prova real de rede
-desligada) e **21/21 PASS** com `--with-autostart` (liga/desliga o login item de
-verdade). Evidências capturadas em `dist/desktop-shots/`:
+**Resultado: 32/32 verificações PASS** na execução final
+(`--offline-proof --with-autostart`). Evidências capturadas em `dist/desktop-shots/`:
 
 | Verificação | Resultado |
 |---|---|
 | login real com a conta de teste (cookies HttpOnly no `session.defaultSession`) | PASS |
 | sidebar na ordem exata, **sem "Administração"** | PASS |
 | HUD com usuário; sem qualquer menção a admin | PASS |
+| **palco preenche a janela**: `fill-stage`, `App.stageFit.fill=true`, sem faixas laterais | PASS (1350×681 → escala 0,703; HUD x=34..1316) |
+| HUD ocupa a largura e rodapé/hints dentro da janela | PASS |
+| mover o mouse sobre a grade **não rola sozinho** (`scrollTop` 0→0) | PASS |
+| roda do mouse navega/rola a grade (0→1267) | PASS |
 | importação M3U (mesmo parser da web) + catálogo | PASS |
 | `#EXTM3U url-tvg` preservado (parser estendido) | PASS |
 | EPG XMLTV via `/_epg/source` (host LAN no allowlist) | PASS |
 | tela **Guia** com grade de programas + marca "Agora" | PASS (captura `07-guia-epg.png`) |
 | TV ao vivo com "Agora/A seguir" e botão Guia | PASS (captura `02-tv-ao-vivo.png`) |
 | Configurações com pasta de downloads/EPG/autostart | PASS (captura `08-configuracoes.png`) |
+| Configurações com a ação **Fonte de EPG padrão** | PASS |
+| **EPG público padrão** (EPGShare01 BR1 real): 215 canais / 22.644 programas em ~1,6–2,7 s | PASS |
+| `tvg-id` com prefixo casa por alias (`SBT.br` → "Meu Coração é Teu") | PASS |
+| captura do Guia com o EPG público real (`15-guia-epg-br1.png`) | PASS |
 | **Iniciar com o Windows desligado por padrão** | PASS |
 | autostart liga (Run key criada) e desliga (Run key removida) | PASS (`--with-autostart`) |
 | download MP4 pelo fluxo da UI | PASS |
@@ -112,8 +120,8 @@ Estado anterior de testes (instalação antiga apontando para uma pasta temporá
 foi removido antes — o teste abaixo é de uma instalação **limpa** per-user:
 
 ```text
-instalador_sha256: b7a4460c2b03e6920d279e11548b24fc7ca4960f81866a47db35fcd3183cf61f
-instalador_bytes: 104082012
+instalador_sha256: 4d13388d55810e73a63278a018fc86b122870743db458d9dc3f48e3cc31ff443
+instalador_bytes: 104087563
 
 === 0. estado limpo ===
 run_space_iptv: (ausente)   run_space_iptv_desktop: (ausente)
@@ -121,7 +129,7 @@ registry_app: ausente       uninstall_key: (ausente)
 
 === 1. instalacao silenciosa (/S) ===
 install_exit: 0
-display_name: Space IPTV     display_version: 1.0.0     publisher: Space IPTV
+display_name: Space IPTV     display_version: 1.0.1     publisher: Space IPTV
 install_dir: C:\Users\pedro\AppData\Local\Programs\Space IPTV   (per-user, sem admin)
 app_exe: True                app_asar: True
 shortcut_desktop: True       shortcut_startmenu: True
@@ -165,4 +173,11 @@ o teste acima confirma que o app usa o valor do registro.
    quando não for mais necessária.
 4. Os fixtures de EPG próprios (`desktop/test/fixtures/xmltv-*`) usam data fixa;
    o mock provider de integração/E2E gera XMLTV relativo ao "agora" para o Guia
-   cobrir a janela atual.
+   cobrir a janela atual. O download do XMLTV tem **timeout total de 90 s**
+   (fonte pública lenta não deixa o guia "carregando" para sempre).
+5. **Fonte pública de EPG** (`EPGShare01 BR1`, `https://epgshare01.online/...`) é
+   um serviço de terceiros, sem SLA; o app guarda cache (12/24/48 h) e o usuário
+   pode trocar/desligar em Configurações. IDs do BR1 vêm prefixados
+   (`São.Paulo/SP..SBT.br`); o app casa por alias (sufixo após `..`/`/`) e por
+   nome normalizado — sem isso o `tvg-id="SBT.br"` não casaria (corrigido e
+   coberto no E2E).

@@ -6,6 +6,9 @@ mesmo login, mesmas listas. **O módulo de administração fica só na web.**
 
 - Shell glass/escuro com sidebar (Início, TV ao vivo, Filmes, Séries, Pesquisa,
   Favoritos, Baixados, Configurações), HUD com usuário/sessão e estado de rede.
+  O **palco preenche a janela** (em janelas mais largas que 16:9 a altura de
+  projeto é reduzida em vez de deixar faixas laterais) e a barra de menu nativa
+  fica auto-oculta (Alt mostra).
 - Login igual ao da web (`/api/auth/*`), sessão em cookies HttpOnly no
   `session.defaultSession`, logout limpa cookies e estado offline.
 - Importação de lista `.m3u/.m3u8` pelo **seletor nativo do Windows** (leitura no
@@ -16,7 +19,11 @@ mesmo login, mesmas listas. **O módulo de administração fica só na web.**
   **Baixados** e reprodução sem internet nem backend.
 - **EPG novo**: XMLTV por M3U (`url-tvg`/`x-tvg-url`) ou Xtream (`xmltv.php`),
   gzip, cache em IndexedDB (TTL configurável, padrão 24 h), "Agora/A seguir" nos
-  canais e tela **Guia** com timeline (teclado e mouse).
+  canais e tela **Guia** com timeline (teclado e mouse). Se a lista não informar
+  EPG, usa a **fonte pública padrão** `EPGShare01 BR1`
+  (`https://epgshare01.online/epgshare01/epg_ripper_BR1.xml.gz`) — trocável ou
+  desligável em Configurações; IDs prefixados (ex.: `São.Paulo/SP..SBT.br`) são
+  casados por alias com `tvg-id` comuns (`SBT.br`).
 - **Iniciar com o Windows** desligado por padrão (per-user, sem administrador),
   bandeja (Abrir/Baixados/Sair), single-instance e posição/tamanho da janela
   lembrados.
@@ -66,7 +73,7 @@ O E2E usa o backend de teste local em `http://127.0.0.1:8789`
 ## Instalador (NSIS)
 
 ```powershell
-npm run dist         # -> ../dist/desktop/SpaceIPTV-Setup-1.0.0.exe
+npm run dist         # -> ../dist/desktop/SpaceIPTV-Setup-1.0.1.exe
 ```
 
 - Instalação **per-user** (sem UAC), NSIS com páginas: boas-vindas, destino,
@@ -98,7 +105,8 @@ gerenciar a pasta nova (a antiga continua no disco).
 
 - listas M3U/Xtream (adicionar, por arquivo, editar, excluir, atualizar);
 - pasta de downloads (mostrar/alterar/validar);
-- cache do guia (12/24/48 h) e "Atualizar guia agora";
+- cache do guia (12/24/48 h), **fonte de EPG padrão** (URL pública, trocar/limpar)
+  e "Atualizar guia agora";
 - iniciar com o Windows (**desligado por padrão**) e iniciar minimizado na bandeja;
 - fechar minimiza para a bandeja;
 - conta: e-mail/papel (sempre "usuário" no desktop), trocar senha, sair.
@@ -113,7 +121,9 @@ gerenciar a pasta nova (a antiga continua no disco).
 - **HLS ao vivo** depende do provedor e do codec suportado pelo Chromium
   embutido; MPEG-TS é reproduzido via `mpegts.js` (vendorizado).
 - **EPG** depende de a lista fornecer `url-tvg`/`x-tvg-url` (M3U) ou `xmltv.php`
-  (Xtream); sem isso a tela Guia mostra estado vazio explicativo.
+  (Xtream); sem isso usa a fonte pública padrão (EPGShare01 BR1) — um serviço de
+  terceiros, sem SLA e com cobertura parcial (o casamento é por alias/nome).
+  A tela Guia mostra estado vazio explicativo quando não há guia.
 - Build **não assinado** (SmartScreen) e auto-update apenas **preparado**
   (`electron-updater` + feed GitHub no `electron-builder.yml`), sem publicar.
 - Recuperação de senha depende das capabilities do backend (hoje
