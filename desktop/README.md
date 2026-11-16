@@ -81,7 +81,7 @@ O E2E usa o backend de teste local em `http://127.0.0.1:8789`
 ## Instalador (NSIS)
 
 ```powershell
-npm run dist         # -> ../dist/desktop/SpaceIPTV-Setup-1.0.5.exe
+npm run dist         # -> ../dist/desktop/SpaceIPTV-Setup-1.0.6.exe
 ```
 
 - **Reinstalação/atualização não pergunta as pastas de novo**: o instalador grava
@@ -89,8 +89,10 @@ npm run dist         # -> ../dist/desktop/SpaceIPTV-Setup-1.0.5.exe
   `HKCU\Software\Space IPTV Installer` (chave que **sobrevive à desinstalação**).
   O app também atualiza essa preferência quando você troca a pasta em
   Configurações.
-- Sem o botão de **tela cheia** no HUD do desktop (era herdado da versão web e não
-  fazia sentido numa janela maximizável); o player continua em tela cheia própria.- Instalação **per-user** (sem UAC), NSIS com páginas: boas-vindas, destino,
+- Sem o botão de **tela cheia** no HUD do desktop (herdado da versão web). O botão de
+  tela cheia do **player** funciona pela janela nativa (IPC), com Esc saindo da tela
+  cheia sem fechar o vídeo. As barras de rolagem são finas: a da grade (~11px) e a
+  das categorias ainda mais fina (~8px).- Instalação **per-user** (sem UAC), NSIS com páginas: boas-vindas, destino,
   **Pasta de downloads** (padrão `%USERPROFILE%\Videos\Space IPTV`, valida
   escrita), atalhos (desktop/menu Iniciar), resumo, instalação, conclusão.
 - Instalação silenciosa (`/S`) usa o padrão, sem perguntas.

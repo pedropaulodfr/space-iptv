@@ -93,7 +93,7 @@ cd desktop; npm run audit:playwright
 # gera desktop/docs/PLAYWRIGHT-AUDIT.md + capturas dist/desktop-shots/pw-*.png
 ```
 
-**Resultado: 23/23 PASS** (Playwright via `_electron`, sem baixar navegador — usa o
+**Resultado: 28/28 PASS** (Playwright via `_electron`, sem baixar navegador — usa o
 Electron do app). Cobre, no app real e com login/lista mock:
 
 | Área | O que foi verificado | Resultado |
@@ -129,21 +129,28 @@ Dois bugs reportados com download real:
    (adiciona um download real, abre Baixados e exige linhas visíveis, sem
    skeleton).
 
-## 2.3 Instalador lembra as pastas (1.0.5) e HUD sem botão de tela cheia
+## 2.3 Instalador lembra as pastas, HUD sem tela cheia e barras de rolagem
 
-- **Reinstalação/atualização sem repetir pastas**: o instalador agora grava
-  `HKCU\Software\Space IPTV Installer` (`InstallDir` e `DownloadsDir`) e essa
-  chave **sobrevive à desinstalação**. No `customInit` ele usa a preferência
-  persistida; se ainda não existir (upgrade de versão antiga), descobre a pasta
-  pela chave de desinstalação do Windows (`InstallLocation`/`UninstallString`).
-  Validado com teste dedicado: instalação em pasta custom → desinstalação (pasta
-  apagada) → nova instalação **sem digitar nada** volta para a mesma pasta e
-  mantém a pasta de downloads. O app também atualiza essa preferência quando o
-  usuário troca a pasta em Configurações (`writeInstallerDownloadPref`).
-- **HUD sem o botão de tela cheia**: o botão `#hud-fs` (herdado da versão web) foi
-  removido do desktop, o item "Tela cheia" saiu do menu Exibir e a janela ficou
-  `fullscreenable: false` (o player continua sendo overlay interno). Auditoria
-  Playwright reexecutada: **23/23 PASS**.
+- **Reinstalação/atualização sem repetir pastas** (1.0.5): o instalador grava
+  `HKCU\Software\Space IPTV Installer` (`InstallDir` e `DownloadsDir`), chave que
+  **sobrevive à desinstalação**. No `customInit` usa a preferência persistida; se
+  não existir (upgrade de versão antiga), descobre a pasta pela chave de
+  desinstalação do Windows (`InstallLocation`/`UninstallString`). Validado:
+  instalação em pasta custom → desinstalação (pasta apagada) → reinstalação sem
+  digitar nada volta para a mesma pasta e mantém a pasta de downloads. O app
+  atualiza a preferência quando o usuário troca a pasta em Configurações.
+- **HUD sem botão de tela cheia** (1.0.5): botão `#hud-fs` e item do menu Exibir
+  removidos. O botão do **player** continua: 1.0.6 passou a alternar a tela cheia
+  da **janela nativa via IPC** (`space:window:toggle-fullscreen`, `win.setFullScreen`),
+  com o ícone sincronizado e **Esc saindo da tela cheia sem fechar o vídeo**.
+  Coberto no Playwright (janela `isFullScreen()` + rótulo do botão + Esc).
+- **Barras de rolagem** (1.0.6): grade com barra fina e bem visível (11,4px
+  renderizados, polegar 10px) e **categorias mais finas** (8,5px, polegar 6,4px).
+  O clique na trilha agora considera a altura do polegar (posição correta ~35%);
+  a ponte de ponteiro ignora o ponteiro sobre a barra (não foca o card embaixo) e
+  o scroll é reafirmado por ~0,5 s após recriar as linhas virtualizadas
+  (`overflow-anchor: none`), eliminando o salto de ~1 linha ao arrastar/clicar/
+  usar Home — o bug relatado na barra dos filmes.
 ## 3. Segurança / embalagem
 
 ```text
@@ -160,7 +167,7 @@ node scripts/check-secrets.js --dist  -> OK, 90 arquivos de texto, 0 segredo/esc
 
 ```powershell
 cd desktop; npm run dist
-# -> dist/desktop/SpaceIPTV-Setup-1.0.5.exe
+# -> dist/desktop/SpaceIPTV-Setup-1.0.6.exe
 ```
 
 Instalação/desinstalação per-user (sem UAC) verificada nesta máquina com o
@@ -181,7 +188,7 @@ Estado anterior de testes (instalação antiga apontando para uma pasta temporá
 foi removido antes — o teste abaixo é de uma instalação **limpa** per-user:
 
 ```text
-instalador_sha256: 06f1816a805bfd5b8745126df312bdab0f7427bbd53235278c281ed1d3fe8376
+instalador_sha256: 5df5d79b20040ee2990da9ac2f1500a9de0fd9ebacc1eca121d5f69bb12c8988
 instalador_bytes: 06f1816a805bfd5b8745126df312bdab0f7427bbd53235278c281ed1d3fe8376
 
 === 0. estado limpo ===
@@ -190,7 +197,7 @@ registry_app: ausente       uninstall_key: (ausente)
 
 === 1. instalacao silenciosa (/S) ===
 install_exit: 0
-display_name: Space IPTV     display_version: 1.0.5     publisher: Space IPTV
+display_name: Space IPTV     display_version: 1.0.6     publisher: Space IPTV
 install_dir: C:\Users\pedro\AppData\Local\Programs\Space IPTV   (per-user, sem admin)
 app_exe: True                app_asar: True
 shortcut_desktop: True       shortcut_startmenu: True
@@ -212,7 +219,7 @@ appdata_cache_apos: False         <- cache/config do app removido
 downloads_registro_apos: ausente
 ```
 
-### Nota sobre a 1.0.5
+### Nota sobre o ciclo de instalação
 
 Nesta rodada o ciclo completo foi validado para a 1.0.5 com um teste dedicado de
 **memória de pastas**: instalação em pasta custom → desinstalação (a pasta é
