@@ -116,6 +116,11 @@
     /* botões e links nativos (ex.: botão de tela cheia) mantêm Enter/Espaço nativos */
     if (isNativeControl(t) && (k === 'Enter' || c === 13 || k === ' ' || c === 32)) return;
 
+    /* barra de rolagem focável: deixa o próprio controle tratar as teclas
+       (setas/PgUp/PgDn/Home/End) — acessibilidade por teclado. */
+    if (document.activeElement && document.activeElement.classList &&
+      document.activeElement.classList.contains('vl-scrollthumb')) return;
+
     /* ---------- Enter: ok no keyup; segurar 650 ms dispara hold ---------- */
     if (k === 'Enter' || c === 13) {
       e.preventDefault();

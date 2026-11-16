@@ -72,8 +72,15 @@ html.desktop #hints {
   left: 252px; top: calc(var(--stage-h, 1080px) - 36px);
   width: 1660px; height: 28px;
 }
-html.desktop .nav-item { height: 56px; border-radius: 14px; }
+html.desktop .nav-item { height: 64px; border-radius: 14px; }
 html.desktop .nav-item .ico { width: 24px; height: 24px; }
+/* alvos de clique: com a escala do palco (~0,70), 44px de projeto viram ~31px.
+   Estes controles sobem para 64px de projeto (≈45px reais) para cumprir 44px. */
+html.desktop #hud-fs { width: 64px; height: 64px; min-width: 64px; min-height: 64px; }
+html.desktop .epg-live-bar { height: 76px; }
+html.desktop .epg-live-bar button { height: 64px; min-width: 64px; }
+html.desktop .epg-live-screen .split { height: calc(100% - 76px); }
+html.desktop .guide-panel button.btn { height: 64px; }
 
 /* mais espaço útil para o conteúdo (categorias/grade/configurações) */
 html.desktop .split { gap: 12px; }
@@ -94,24 +101,39 @@ html.desktop .modal { max-height: calc(var(--stage-h, 1080px) - 48px); }
    As listas são virtualizadas e navegadas por foco; esta barra dá a posição e
    permite arrastar/clicar para rolar sem usar o teclado. O JS está em
    js/scrollbar.js; aqui é só a aparência (tokens do design system).
+   z-index acima de .card.focused (30) para continuar clicável quando o mouse
+   está sobre o último cartão da linha.
    --------------------------------------------------------------------- */
 .vl-scroll {
-  position: absolute; right: 3px; width: 12px; z-index: 8;
-  pointer-events: none; opacity: 0; transition: opacity 150ms;
+  position: absolute; right: 0; width: 24px; z-index: 45;
+  pointer-events: none; opacity: 0; transition: opacity 120ms;
 }
 .vl-scroll.on { opacity: 1; pointer-events: auto; }
-.vl-scrollthumb {
-  position: absolute; left: 1px; width: 8px; min-height: 32px; border-radius: 999px;
-  background: rgba(245, 247, 255, .30); border: 1px solid rgba(255, 255, 255, .28);
-  cursor: pointer; pointer-events: auto;
-  transition: background 150ms, border-color 150ms, box-shadow 150ms;
+/* trilha: sempre visível quando a lista rola, para a barra não "sumir" */
+.vl-scroll::before {
+  content: ""; position: absolute; left: 9px; top: 0; bottom: 0; width: 10px;
+  border-radius: 999px; background: rgba(5, 7, 17, .55);
+  border: 1px solid rgba(255, 255, 255, .10);
 }
-.vl-scrollthumb:hover,
-.vl-scroll.drag .vl-scrollthumb {
+.vl-scrollthumb {
+  position: absolute; left: 2px; width: 24px; min-height: 64px; border-radius: 999px;
+  background: rgba(245, 247, 255, .62);
+  border: 1px solid rgba(255, 255, 255, .55);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .55);
+  cursor: pointer; pointer-events: auto; outline: none;
+  transition: background 120ms, border-color 120ms, box-shadow 120ms;
+}
+.vl-scrollthumb:hover {
+  background: rgba(245, 247, 255, .85);
+  border-color: var(--softWhite);
+}
+.vl-scroll.drag .vl-scrollthumb,
+.vl-scrollthumb:focus-visible {
   background: linear-gradient(180deg, var(--electricBlue), var(--cosmicPurple));
   border-color: var(--glassFocusBorder);
   box-shadow: var(--glow-blue);
 }
+.vl-scrollthumb:focus-visible { outline: 2px solid var(--electricBlue); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
   .vl-scroll, .vl-scrollthumb { transition: none; }
 }

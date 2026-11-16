@@ -34,6 +34,7 @@
   function onDragEnd() {
     if (!activeDrag) return;
     try { activeDrag.bar.classList.remove('drag'); } catch (err) { /* ignore */ }
+    try { activeDrag.thumb.removeAttribute('data-drag'); } catch (err) { /* ignore */ }
     activeDrag = null;
   }
   document.addEventListener('pointermove', onDragMove, true);
@@ -50,11 +51,18 @@
 
     var bar = document.createElement('div');
     bar.className = 'vl-scroll';
-    bar.setAttribute('aria-hidden', 'true');
     var thumb = document.createElement('div');
     thumb.className = 'vl-scrollthumb';
+    thumb.setAttribute('role', 'scrollbar');
+    thumb.setAttribute('aria-orientation', 'vertical');
+    thumb.setAttribute('aria-label', 'Rolar a lista');
+    thumb.setAttribute('aria-valuemin', '0');
+    thumb.setAttribute('tabindex', '-1');
+    thumb.title = 'Arraste para rolar';
     bar.appendChild(thumb);
     parent.appendChild(bar);
+    if (!root.id) root.id = 'vl-list-' + (++attached);
+    thumb.setAttribute('aria-controls', root.id);
     root.__sbar = { bar: bar, thumb: thumb, vl: vl };
     attached++;
 
@@ -66,8 +74,15 @@
       if (!root.isConnected) { destroy(); return; }
       bar.style.top = (root.offsetTop || 0) + 'px';
       bar.style.height = (root.clientHeight || 0) + 'px';
-      if (!visible()) { bar.classList.remove('on'); return; }
+      if (!visible()) {
+        bar.classList.remove('on');
+        thumb.setAttribute('aria-hidden', 'true');
+        thumb.setAttribute('tabindex', '-1');
+        return;
+      }
       bar.classList.add('on');
+      thumb.setAttribute('aria-hidden', 'false');
+      thumb.setAttribute('tabindex', '0');
       var sh = root.scrollHeight, ch = root.clientHeight;
       var maxTop = ch - Math.max(THUMB_MIN, Math.round(ch * ch / sh));
       var thumbH = Math.max(THUMB_MIN, Math.round(ch * ch / sh));
@@ -75,6 +90,11 @@
       ratio = Math.max(0, Math.min(1, ratio));
       thumb.style.height = thumbH + 'px';
       thumb.style.top = Math.round(ratio * maxTop) + 'px';
+      /* ARIA: anuncia a posição para leitores de tela */
+      var pct = Math.round(ratio * 100);
+      thumb.setAttribute('aria-valuemax', String(Math.round(sh - ch)));
+      thumb.setAttribute('aria-valuenow', String(Math.round(root.scrollTop)));
+      thumb.setAttribute('aria-valuetext', pct + '% da lista');
     }
     function rerender() {
       if (vl && typeof vl.render === 'function') vl.render();
@@ -96,6 +116,27 @@
       syncIdx();
       rerender();
     }
+    function scrollByRows(rows) {
+      var rowH = (vl && vl.rowH) || 80;
+      var sh = root.scrollHeight, ch = root.clientHeight;
+      var target = Math.max(0, Math.min(sh - ch, root.scrollTop + rows * rowH));
+      root.scrollTop = target;
+      syncIdx();
+      rerender();
+    }
+    /* teclado: a barra é focável (Tab) e rola com setas/PgUp/PgDn/Home/End */
+    thumb.addEventListener('keydown', function (e) {
+      var pageRows = Math.max(1, Math.floor(root.clientHeight / ((vl && vl.rowH) || 80)) - 1);
+      var handled = true;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') scrollByRows(1);
+      else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') scrollByRows(-1);
+      else if (e.key === 'PageDown') scrollByRows(pageRows);
+      else if (e.key === 'PageUp') scrollByRows(-pageRows);
+      else if (e.key === 'Home') scrollToRatio(0);
+      else if (e.key === 'End') scrollToRatio(1);
+      else handled = false;
+      if (handled) { e.preventDefault(); e.stopPropagation(); }
+    });
 
     /* arrastar o polegar: listeners no document (pointer capture pode falhar em
        entradas sintéticas/sem foco; no document o arrasto funciona sempre) */
@@ -105,6 +146,7 @@
       drag = { y: e.clientY, top: parseFloat(thumb.style.top) || 0, h: parseFloat(thumb.style.height) || THUMB_MIN };
       activeDrag = { self: bar, root: root, thumb: thumb, bar: bar, drag: drag, scrollToRatio: scrollToRatio };
       bar.classList.add('drag');
+      thumb.setAttribute('data-drag', '1');
       e.preventDefault();
       e.stopPropagation();
     }, true);
