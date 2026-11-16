@@ -1,15 +1,15 @@
 # Space IPTV Desktop — auditoria Playwright (visual, usabilidade e acessibilidade)
 
-Gerado por `node scripts/audit-playwright.js` em 2026-11-16T19:25:11.776Z.
+Gerado por `node scripts/audit-playwright.js` em 2026-11-16T19:57:36.275Z.
 
 Ambiente: Windows 11 x64 · Electron 40.6.0 · Playwright (playwright-core) via `_electron` · backend de teste `http://127.0.0.1:8789`.
 
-Resumo: **22/22 verificações PASS**.
+Resumo: **23/23 verificações PASS**.
 
 | Área | PASS | FAIL |
 |---|---|---|
 | login | 1 | 0 |
-| usabilidade | 6 | 0 |
+| usabilidade | 7 | 0 |
 | visual | 5 | 0 |
 | acessibilidade | 10 | 0 |
 
@@ -36,7 +36,8 @@ Resumo: **22/22 verificações PASS**.
 | PASS | acessibilidade | barra expõe aria-valuenow/valuetext | `{"top":2936,"value":"2936","text":"72% da lista"}` |
 | PASS | acessibilidade | barra navegável por teclado (PageDown/Home reais) | `{"focused":true,"before":2936,"afterPage":3356,"afterHome":0}` |
 | PASS | acessibilidade | árvore de acessibilidade tem scrollbar nomeado | `name=Rolar a lista props=focusable=true,focused=true,settable=true,orientation=vertical,valuemin=0,valuemax=4077,valuetext=0% da lista,controls=vl-list-3` |
-| PASS | acessibilidade | foco visível ao navegar por teclado (setas) | `{"cls":"card poster focused","border":"rgba(81, 142, 255, 0.91)","glow":true,"w":154.65293884277344,"h":255.1774139404297}` |
+| PASS | usabilidade | tela Baixados mostra os downloads (sem skeleton eterno) | `{"dlScreen":{"screens":1,"loading":false,"cls":"dl-screen","rows":1,"skeletonVisible":false,"skelDisplay":"none","listDisplay":"block","summary":"1 item • 96,0 KB","empty":"Carregando downloads...","text":"BA\nBaixados Auditoria\nConcluído\` |
+| PASS | acessibilidade | foco visível ao navegar por teclado (setas) | `{"cls":"card poster focused","border":"rgba(89, 147, 255, 0.914)","glow":true,"w":154.65098571777344,"h":255.17417907714844}` |
 | PASS | acessibilidade | prefers-reduced-motion desliga animações decorativas | `{"duration":"0s","iteration":"1"}` |
 | PASS | acessibilidade | botões do Guia com >= 44px renderizados | `[{"w":83.5518798828125,"h":45.53333282470703},{"w":103.8394775390625,"h":45.53333282470703}]` |
 
@@ -45,6 +46,7 @@ Resumo: **22/22 verificações PASS**.
 - `dist/desktop-shots/pw-00-login.png`
 - `dist/desktop-shots/pw-01-inicio.png`
 - `dist/desktop-shots/pw-02-grade-barra-rolagem.png`
+- `dist/desktop-shots/pw-05-baixados.png`
 - `dist/desktop-shots/pw-03-live.png`
 - `dist/desktop-shots/pw-03-movies.png`
 - `dist/desktop-shots/pw-03-series.png`

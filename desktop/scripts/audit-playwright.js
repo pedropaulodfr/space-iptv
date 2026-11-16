@@ -143,6 +143,11 @@ async function main() {
     });
     const page = await app.firstWindow({ timeout: 60000 });
     await page.waitForLoadState('domcontentloaded');
+    page.on('pageerror', (err) => console.log('[audit] PAGEERROR: ' + err.message));
+    page.on('console', (msg) => {
+      const text = msg.text();
+      if (msg.type() === 'error' || text.indexOf('[dl]') === 0) console.log('[audit] CONSOLE(' + msg.type() + '): ' + text.slice(0, 240));
+    });
     await page.setViewportSize({ width: 1366, height: 768 }).catch(() => {});
     const shot = async (name) => {
       const file = path.join(SHOTS, 'pw-' + name + '.png');
@@ -387,6 +392,64 @@ async function main() {
       await client.detach().catch(() => {});
     } catch (e) { axDetail = 'CDP falhou: ' + e.message; }
     check(axOk, 'acessibilidade', 'árvore de acessibilidade tem scrollbar nomeado', axDetail);
+
+    /* ---------- tela Baixados com download real (não pode ficar em skeleton) ---------- */
+    let dlId = '';
+    try {
+      const added = await page.evaluate(async (url) => {
+        try {
+          const out = await space.downloads.add({ kind: 'movie', title: 'Baixados Auditoria', listId: 'pw-audit', itemId: 'pw-audit-dl', url: url, durationSec: 1, totalBytes: 0 });
+          const list = await space.downloads.list();
+          return { ok: !!(out && out.ok), id: (out && out.id) || (list.items[0] && list.items[0].id) || '' };
+        } catch (e) { return { ok: false, error: String(e && (e.message || e.code) || e) }; }
+      }, provider.provider.baseUrl + '/movie.mp4');
+      dlId = added.id || '';
+      await page.evaluate(() => { window.__DL_DEBUG = true; });
+      await sleep(1500);
+      /* sonda direta do IPC: distingue "lista demora no main" de "tela não destrava" */
+      const listProbe = await page.evaluate(async () => {
+        const t = Date.now();
+        try {
+          const r = await space.downloads.list();
+          return { ms: Date.now() - t, items: (r.items || []).length, error: r.error || '' };
+        } catch (e) { return { ms: Date.now() - t, error: String(e && (e.message || e.code) || e) }; }
+      });
+      console.log('[audit] probe downloads.list(): ' + JSON.stringify(listProbe));
+      await go('downloads', 300);
+      try {
+        await page.waitForFunction(() => {
+          const s = document.querySelector('.dl-screen');
+          return !!(s && !s.classList.contains('is-loading'));
+        }, null, { timeout: 9000 });
+      } catch (e) { /* segue: a checagem abaixo reprova */ }
+      const dlScreen = await page.evaluate(() => {
+        const screens = document.querySelectorAll('.dl-screen');
+        const screen = screens[0];
+        const rows = document.querySelectorAll('.dl-row');
+        const skel = document.querySelector('.dl-skeleton');
+        const list = document.querySelector('.dl-list');
+        return {
+          screens: screens.length,
+          loading: !!(screen && screen.classList.contains('is-loading')),
+          cls: screen ? screen.className : '',
+          rows: rows.length,
+          skeletonVisible: !!(skel && skel.getClientRects().length > 0),
+          skelDisplay: skel ? getComputedStyle(skel).display : '',
+          listDisplay: list ? getComputedStyle(list).display : '',
+          summary: (document.querySelector('.dl-summary') || {}).textContent || '',
+          empty: (document.querySelector('.dl-list .vl-empty') || {}).textContent || '',
+          text: (document.querySelector('.dl-body') || {}).innerText ? document.querySelector('.dl-body').innerText.slice(0, 160) : ''
+        };
+      });
+      await shot('05-baixados');
+      check(!dlScreen.loading && dlScreen.rows >= 1 && !dlScreen.skeletonVisible, 'usabilidade', 'tela Baixados mostra os downloads (sem skeleton eterno)', JSON.stringify({ dlScreen: dlScreen, probe: listProbe }));
+    } catch (e) {
+      check(false, 'usabilidade', 'tela Baixados mostra os downloads (sem skeleton eterno)', 'erro: ' + e.message);
+    } finally {
+      if (dlId) {
+        try { await page.evaluate((id) => space.downloads.remove(id, { deleteFiles: true }), dlId); } catch (e) { /* ignore */ }
+      }
+    }
 
     /* ---------- teclado do app (setas/Enter/Esc) ---------- */
     await page.evaluate(() => App.shell.goto('home'));
