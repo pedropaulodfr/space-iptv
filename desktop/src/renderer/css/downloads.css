@@ -1,0 +1,436 @@
+/* Space IPTV Desktop — estilos da tela Baixados e dos botões de download.
+ *
+ * Só classes próprias (`.dl-*`), usando os tokens do design system
+ * (tv/css/design-system.css) e sem redesenhar componentes compartilhados.
+ * Palco fixo de 1920x1080; foco visível; alvos ≥44 px; respeita
+ * prefers-reduced-motion. */
+
+/* ============================ tela ============================ */
+
+.dl-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  gap: 14px;
+}
+
+.dl-head {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dl-head-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 4px;
+}
+
+.dl-head-top .display {
+  font-size: 26px;
+  line-height: 34px;
+}
+
+.dl-summary {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 18px;
+  text-align: right;
+}
+
+/* ---------- barra de ferramentas ---------- */
+
+.dl-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.dl-search {
+  flex: 0 0 330px;
+  width: 330px;
+  height: 56px;
+  padding: 0 18px;
+  gap: 10px;
+}
+
+.dl-search label {
+  width: auto;
+  flex: none;
+  font-size: 13px;
+}
+
+.dl-search input {
+  font-size: 17px;
+}
+
+.dl-chips {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dl-chip {
+  flex: none;
+  height: 48px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-size: 15px;
+}
+
+.dl-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+.dl-action {
+  height: 48px;
+  padding: 0 18px;
+  font-size: 15px;
+}
+
+/* ---------- corpo / lista ---------- */
+
+.dl-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.dl-list {
+  position: relative;
+  height: 100%;
+}
+
+.dl-list .vlist {
+  height: 100%;
+}
+
+.dl-list .vl-empty {
+  top: 30%;
+  font-size: 17px;
+  line-height: 26px;
+}
+
+/* ---------- linha de download ---------- */
+
+.dl-row {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr) 240px;
+  gap: 20px;
+  align-items: center;
+  padding: 12px 20px;
+  border-radius: 18px;
+  border: 1px solid var(--glassBorder);
+  background: rgba(5, 7, 17, .42);
+  transition: transform 220ms var(--ease-focus), border-color 200ms, box-shadow 200ms, background 200ms;
+  will-change: transform;
+}
+
+.dl-row.focused {
+  transform: scale(1.012);
+  border-color: var(--glassFocusBorder);
+  background: linear-gradient(135deg, rgba(66, 133, 255, .16), rgba(130, 87, 229, .16));
+  box-shadow: var(--glow-blue);
+  z-index: 20;
+}
+
+.dl-poster {
+  position: relative;
+  width: 84px;
+  height: 96px;
+  flex: none;
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(160deg, #16265e, var(--spaceNavy));
+  border: 1px solid var(--glassBorder);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dl-poster img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
+}
+
+.dl-poster-ph {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 26px;
+  color: rgba(245, 247, 255, .35);
+  user-select: none;
+}
+
+.dl-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.dl-row-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dl-title {
+  font-size: 19px;
+  line-height: 25px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dl-badge {
+  flex: none;
+  font-size: 11px;
+  padding: 2px 9px;
+}
+
+.dl-sub {
+  min-width: 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dl-sub .dl-type {
+  color: rgba(245, 247, 255, .82);
+}
+
+.dl-bar {
+  height: 6px;
+  margin-top: 3px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, .16);
+  overflow: hidden;
+}
+
+.dl-bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--electricBlue), var(--cosmicPurple));
+  transition: width 300ms linear;
+}
+
+.dl-status {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dl-status.err {
+  color: var(--danger);
+}
+
+.dl-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  text-align: right;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 16px;
+  min-width: 0;
+}
+
+.dl-size {
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 500;
+  color: var(--softWhite);
+}
+
+.dl-size-total,
+.dl-date {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* ---------- cores por estado ---------- */
+
+.dl-st-done .dl-bar i { background: var(--ok); }
+
+.dl-st-error .dl-bar i { background: var(--danger); }
+
+.dl-st-paused .dl-bar i,
+.dl-st-canceled .dl-bar i { background: #ffcf6b; }
+
+.dl-st-badge-done {
+  background: rgba(61, 220, 151, .15);
+  border-color: rgba(61, 220, 151, .5);
+}
+
+.dl-st-badge-error {
+  background: rgba(255, 93, 115, .18);
+  border-color: rgba(255, 93, 115, .6);
+}
+
+.dl-st-badge-paused,
+.dl-st-badge-canceled {
+  background: rgba(255, 207, 107, .14);
+  border-color: rgba(255, 207, 107, .5);
+}
+
+.dl-st-badge-queued,
+.dl-st-badge-packaging {
+  background: rgba(130, 87, 229, .18);
+  border-color: rgba(130, 87, 229, .55);
+}
+
+/* ============================ skeleton ============================ */
+
+.dl-skeleton {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  padding: 12px;
+  display: none;
+  flex-direction: column;
+  gap: 14px;
+  pointer-events: none;
+}
+
+.dl-screen.is-loading .dl-skeleton {
+  display: flex;
+}
+
+.dl-screen.is-loading .dl-list {
+  visibility: hidden;
+}
+
+.dl-skel-row {
+  height: 124px;
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr) 240px;
+  gap: 20px;
+  align-items: center;
+  padding: 0 20px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, .05);
+  background: rgba(11, 22, 56, .35);
+}
+
+.dl-skel-poster {
+  width: 84px;
+  height: 96px;
+  border-radius: 12px;
+}
+
+.dl-skel-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dl-skel-line {
+  height: 14px;
+  border-radius: 7px;
+}
+
+.dl-skel-line.w60 { width: 60%; }
+.dl-skel-line.w40 { width: 40%; }
+.dl-skel-line.w80 { width: 80%; }
+
+.dl-skel-side {
+  width: 150px;
+  height: 44px;
+  border-radius: 12px;
+  justify-self: end;
+}
+
+/* ============================ botões injetados ============================ */
+
+/* botão principal no overlay de detalhes (mesmo grupo dos demais, focável) */
+.dl-detail-btn {
+  height: 64px;
+}
+
+/* botão "Baixar" em cada linha de episódio do overlay de detalhes */
+.dl-ep-btn {
+  flex: none;
+  margin-left: 14px;
+  height: 44px;
+  min-width: 96px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid var(--glassBorder);
+  background: rgba(66, 133, 255, .18);
+  color: var(--softWhite);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 180ms, border-color 180ms, transform 180ms var(--ease-focus);
+}
+
+@media (hover: hover) {
+  .dl-ep-btn:hover {
+    background: rgba(66, 133, 255, .32);
+    border-color: var(--glassFocusBorder);
+  }
+}
+
+.dl-ep-btn:active {
+  transform: scale(.97);
+}
+
+.dl-ep-btn:focus-visible {
+  outline: 2px solid var(--electricBlue);
+  outline-offset: 3px;
+}
+
+/* ============================ acessibilidade / movimento ============================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .dl-row,
+  .dl-bar i,
+  .dl-ep-btn,
+  .dl-detail-btn {
+    transition: none;
+  }
+
+  .dl-row.focused {
+    transform: none;
+  }
+
+  .dl-skel-row .skel {
+    animation: none;
+  }
+}
