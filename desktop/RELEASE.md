@@ -42,7 +42,10 @@ Get-ChildItem SpaceIPTV-Setup-*.exe | ForEach-Object {
 1. `node scripts/e2e-ui.js --electron <electron.exe> --shots --offline-proof`
    (login real, importação M3U, EPG/Guia, download MP4+HLS, reprodução offline
    com Wi-Fi desligado, exclusão).
-2. Instalação silenciosa e normal em uma máquina/VM limpa **sem admin**:
+2. `npm run audit:playwright` — auditoria visual/usabilidade/acessibilidade
+   (layout compacto, barra de rolagem, contraste, alvos 44px, teclado, ARIA,
+   reduced motion) em `docs/PLAYWRIGHT-AUDIT.md`.
+3. Instalação silenciosa e normal em uma máquina/VM limpa **sem admin**:
    - escolher a pasta de downloads no setup e conferir que ela é usada;
    - conferir atalhos (desktop/menu Iniciar), nome "Space IPTV" e versão no Sobre;
    - conferir que **Iniciar com o Windows** vem desligado;

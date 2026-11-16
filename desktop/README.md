@@ -10,8 +10,11 @@ mesmo login, mesmas listas. **O módulo de administração fica só na web.**
   (em vez dos 48px da TV), altura de projeto reduzida em janelas mais largas que
   16:9 e barra de menu nativa auto-oculta (Alt mostra).
 - **Barra de rolagem própria** na grade de vídeos (e nas demais listas da tela):
-  mostra a posição, arrasta e clica; as listas continuam navegáveis por foco,
-  teclado e roda do mouse.
+  trilha sempre visível quando a lista rola, polegar claro de 24px com contraste
+  alto, clique na trilha e arrasto. Fica acima dos cards (z-index 45) e continua
+  clicável com o mouse sobre o último cartão. Também é **focável por teclado**
+  (Tab + setas/PgUp/PgDn/Home/End) e expõe `role="scrollbar"`/ARIA para leitores
+  de tela; as listas continuam navegáveis por foco e roda do mouse.
 - Login igual ao da web (`/api/auth/*`), sessão em cookies HttpOnly no
   `session.defaultSession`, logout limpa cookies e estado offline.
 - Importação de lista `.m3u/.m3u8` pelo **seletor nativo do Windows** (leitura no
@@ -53,6 +56,8 @@ npm run build:renderer      # copia tv/ + web/ (sem admin) + src/renderer -> dis
 npm start                   # abre o app (builda o renderer antes)
 npm run dev                 # idem + DevTools
 npm test                    # node --test "test/**/*.test.js"
+npm run audit:playwright    # auditoria visual/usabilidade/acessibilidade (Playwright + Electron)
+npm run e2e:ui -- --electron <electron.exe> --shots --offline-proof --with-autostart
 ```
 
 Testes de UI/E2E (sem dependências, via Chrome DevTools Protocol):
@@ -145,7 +150,7 @@ desktop/
   scripts/        build-renderer, ícones, check-secrets, e2e-ui
   installer/      macros NSIS (página da pasta de downloads, uninstall)
   test/           unit, integration, e2e e fixtures (node --test)
-  docs/           UI-UX-AUDIT, UI-UX-NOTES, TEST-REPORT
+  docs/           UI-UX-AUDIT, UI-UX-NOTES, PLAYWRIGHT-AUDIT, TEST-REPORT
   CONTRACTS.md    contratos do time (arquitetura/segurança)
 ```
 

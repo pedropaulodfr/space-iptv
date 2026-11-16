@@ -85,7 +85,28 @@ reconectado (o script só termina depois de confirmar a internet de volta).
 Isso comprova: **download + reprodução offline não dependem do backend,
 do Cloudflare nem de internet**.
 
-## 3. Segurança / embalagem
+## 2.1 Auditoria visual/usabilidade/acessibilidade com Playwright
+
+```powershell
+cd desktop; npm run audit:playwright
+# gera desktop/docs/PLAYWRIGHT-AUDIT.md + capturas dist/desktop-shots/pw-*.png
+```
+
+**Resultado: 22/22 PASS** (Playwright via `_electron`, sem baixar navegador — usa o
+Electron do app). Cobre, no app real e com login/lista mock:
+
+| Área | O que foi verificado | Resultado |
+|---|---|---|
+| visual | palco preenche a janela (fill), layout compacto (~8px), conteúdo até o fim, sem rolagem horizontal | PASS |
+| usabilidade | barra de rolagem visível (trilha+polegar), polegar ≥12×40 renderizados, z-index 45 acima dos cards, acessível com o mouse sobre o último cartão, clique na trilha e arrasto | PASS |
+| acessibilidade | alvos do HUD/menu ≥44px renderizados; contraste de texto ≥4.5:1 (amostras: 7,32:1 e 18,79:1); polegar com 7,32:1; `role="scrollbar"`+nome+`aria-valuenow/valuetext` na árvore de acessibilidade; barra focável (Tab) e operável por PageDown/Home; foco visível nas setas; `prefers-reduced-motion` desliga animações; botões do Guia ≥44px | PASS |
+
+Observações registradas no relatório: a barra é um controle próprio (não nativo),
+com hit-area de 24px de projeto (~17px reais) — abaixo dos 44px do checklist de
+toque, mas acessível por clique, arrasto, roda e teclado; os controles principais
+foram compensados para ≥44px renderizados por causa da escala do palco (~0,71).
+
+
 
 ```text
 node scripts/check-secrets.js --dist  -> OK, 90 arquivos de texto, 0 segredo/escopo indevido
@@ -122,8 +143,8 @@ Estado anterior de testes (instalação antiga apontando para uma pasta temporá
 foi removido antes — o teste abaixo é de uma instalação **limpa** per-user:
 
 ```text
-instalador_sha256: 6b06f56066722806b955c9fb5857111e0740d5c53bcac8b456563456eb8e9123
-instalador_bytes: 104091973
+instalador_sha256: 873168e477127e9d230e7391ee8524983ee5cd1de84e6a0cb2ac746990a2fbb8
+instalador_bytes: 104093322
 
 === 0. estado limpo ===
 run_space_iptv: (ausente)   run_space_iptv_desktop: (ausente)
@@ -131,7 +152,7 @@ registry_app: ausente       uninstall_key: (ausente)
 
 === 1. instalacao silenciosa (/S) ===
 install_exit: 0
-display_name: Space IPTV     display_version: 1.0.2     publisher: Space IPTV
+display_name: Space IPTV     display_version: 1.0.3     publisher: Space IPTV
 install_dir: C:\Users\pedro\AppData\Local\Programs\Space IPTV   (per-user, sem admin)
 app_exe: True                app_asar: True
 shortcut_desktop: True       shortcut_startmenu: True
